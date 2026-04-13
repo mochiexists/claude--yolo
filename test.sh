@@ -111,6 +111,28 @@ echo ""
 echo "=== Step 4: Install claude --yolo ==="
 sh "$SCRIPT_DIR/install.sh"
 assert_eq "zshrc has claude-yolo marker" "1" "$(count_matches '>>> claude-yolo >>>' "$FAKE_HOME/.zshrc")"
+
+# Verify the installed block is exactly what we expect (no extra content)
+EXPECTED_BLOCK='# >>> claude-yolo >>>
+# https://github.com/mochiexists/yolo
+claude() {
+    local args=()
+    for arg in "$@"; do
+        if [[ "$arg" == "--yolo" ]]; then
+            args+=("--dangerously-skip-permissions")
+        else
+            args+=("$arg")
+        fi
+    done
+    command claude "${args[@]}"
+}
+# <<< claude-yolo <<<'
+ACTUAL_BLOCK=$(sed -n '/>>> claude-yolo >>>/,/<<< claude-yolo <<</p' "$FAKE_HOME/.zshrc")
+assert_eq "installed block matches expected exactly" "$EXPECTED_BLOCK" "$ACTUAL_BLOCK"
+
+# Count lines between markers — should be exactly 14 (markers + function)
+block_lines=$(echo "$ACTUAL_BLOCK" | wc -l | tr -d ' ')
+assert_eq "block has exactly 14 lines" "14" "$block_lines"
 echo ""
 
 # ─────────────────────────────────────────────
