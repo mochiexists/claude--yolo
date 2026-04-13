@@ -75,7 +75,11 @@ echo "  Open a new terminal, then run:  claude --yolo"
 
 ## Uninstall
 
-Remove the `claude-yolo` block from your shell rc file (`~/.zshrc` or `~/.bashrc`).
+```sh
+curl -fsSL https://mochiexists.com/yolo/uninstall.sh | sh
+```
+
+Then **open a new terminal**.
 
 ## License
 
