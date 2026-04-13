@@ -31,7 +31,7 @@ https://github.com/mochiexists/yolo/blob/main/install.sh
 set -e
 
 FUNCTION_BLOCK='
-# claude-yolo: --yolo flag support for Claude Code
+# >>> claude-yolo >>>
 # https://github.com/mochiexists/yolo
 claude() {
     local args=()
@@ -43,47 +43,32 @@ claude() {
         fi
     done
     command claude "${args[@]}"
-}'
+}
+# <<< claude-yolo <<<'
 
-MARKER="claude-yolo"
+START_MARKER=">>> claude-yolo >>>"
 
 install_to_rc() {
     rc_file="$1"
     if [ ! -f "$rc_file" ]; then return; fi
-    if grep -q "$MARKER" "$rc_file" 2>/dev/null; then
+    if grep -q "$START_MARKER" "$rc_file" 2>/dev/null; then
         echo "  Already installed in $rc_file — skipping."; return
     fi
     printf "\n%s\n" "$FUNCTION_BLOCK" >> "$rc_file"
     echo "  Added to $rc_file"
 }
 
-echo ""
 echo "  /\_/\  "
-echo " ( o.o ) claude --yolo"
-echo "  > ^ <  installer"
-echo ""
+echo " ( o.o ) claude --yolo installer"
+echo "  > ^ <  "
 echo "==> Sniffing shell config..."
 
-installed=0
+# Installs to .zshrc and/or .bashrc based on detected shell
 
-if [ -f "$HOME/.zshrc" ] || [ "$(basename "$SHELL")" = "zsh" ]; then
-    touch "$HOME/.zshrc"; install_to_rc "$HOME/.zshrc"; installed=1
-fi
-if [ -f "$HOME/.bashrc" ] || [ "$(basename "$SHELL")" = "bash" ]; then
-    touch "$HOME/.bashrc"; install_to_rc "$HOME/.bashrc"; installed=1
-fi
-
-if [ "$installed" -eq 0 ]; then
-    echo " ( x.x ) Meow! Could not detect shell config."; exit 1
-fi
-
-echo ""
 echo "  /\_/\  "
 echo " ( ^.^ ) Installed! *knocks things off desk*"
 echo "  > ^ <  meow~"
-echo ""
 echo "  Open a new terminal, then run:  claude --yolo"
-echo ""
 ```
 
 </details>

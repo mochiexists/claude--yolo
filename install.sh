@@ -6,7 +6,7 @@ set -e
 # instead of `claude --dangerously-skip-permissions`
 
 FUNCTION_BLOCK='
-# claude-yolo: --yolo flag support for Claude Code
+# >>> claude-yolo >>>
 # https://github.com/mochiexists/yolo
 claude() {
     local args=()
@@ -18,16 +18,18 @@ claude() {
         fi
     done
     command claude "${args[@]}"
-}'
+}
+# <<< claude-yolo <<<'
 
-MARKER="claude-yolo"
+START_MARKER=">>> claude-yolo >>>"
+END_MARKER="<<< claude-yolo <<<"
 
 install_to_rc() {
     rc_file="$1"
     if [ ! -f "$rc_file" ]; then
         return
     fi
-    if grep -q "$MARKER" "$rc_file" 2>/dev/null; then
+    if grep -q "$START_MARKER" "$rc_file" 2>/dev/null; then
         echo "  Already installed in $rc_file — skipping."
         return
     fi

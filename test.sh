@@ -92,7 +92,7 @@ echo ""
 echo "=== Step 2: Ensure clean slate ==="
 touch "$FAKE_HOME/.zshrc"
 sh "$SCRIPT_DIR/uninstall.sh" >/dev/null 2>&1
-assert_eq "zshrc has no claude-yolo marker" "0" "$(count_matches 'claude-yolo' "$FAKE_HOME/.zshrc")"
+assert_eq "zshrc has no claude-yolo marker" "0" "$(count_matches '>>> claude-yolo >>>' "$FAKE_HOME/.zshrc")"
 echo ""
 
 # ─────────────────────────────────────────────
@@ -110,7 +110,7 @@ echo ""
 # ─────────────────────────────────────────────
 echo "=== Step 4: Install claude --yolo ==="
 sh "$SCRIPT_DIR/install.sh"
-assert_eq "zshrc has claude-yolo marker" "1" "$(count_matches 'claude-yolo' "$FAKE_HOME/.zshrc")"
+assert_eq "zshrc has claude-yolo marker" "1" "$(count_matches '>>> claude-yolo >>>' "$FAKE_HOME/.zshrc")"
 echo ""
 
 # ─────────────────────────────────────────────
@@ -140,7 +140,7 @@ assert_eq "mixed args rewritten correctly" "--model opus --dangerously-skip-perm
 
 # Idempotent reinstall
 sh "$SCRIPT_DIR/install.sh" >/dev/null 2>&1
-assert_eq "reinstall doesn't duplicate" "1" "$(count_matches 'claude-yolo' "$FAKE_HOME/.zshrc")"
+assert_eq "reinstall doesn't duplicate" "1" "$(count_matches '>>> claude-yolo >>>' "$FAKE_HOME/.zshrc")"
 echo ""
 
 # ─────────────────────────────────────────────
@@ -148,7 +148,7 @@ echo ""
 # ─────────────────────────────────────────────
 echo "=== Step 6: Uninstall and verify removal ==="
 sh "$SCRIPT_DIR/uninstall.sh"
-assert_eq "zshrc has no marker after uninstall" "0" "$(count_matches 'claude-yolo' "$FAKE_HOME/.zshrc")"
+assert_eq "zshrc has no marker after uninstall" "0" "$(count_matches '>>> claude-yolo >>>' "$FAKE_HOME/.zshrc")"
 assert_not_contains "zshrc has no claude function" "command claude" "$(cat "$FAKE_HOME/.zshrc")"
 echo ""
 
