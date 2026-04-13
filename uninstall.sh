@@ -6,6 +6,7 @@ set -e
 
 START_MARKER=">>> claude-yolo >>>"
 END_MARKER="<<< claude-yolo <<<"
+EXPECTED_LINES=14
 
 uninstall_from_rc() {
     rc_file="$1"
@@ -15,7 +16,26 @@ uninstall_from_rc() {
     if ! grep -q "$START_MARKER" "$rc_file" 2>/dev/null; then
         return
     fi
-    # Delete only between the two boundary markers (inclusive)
+
+    # Extract the block and verify it's exactly what we installed
+    block=$(sed -n "/$START_MARKER/,/$END_MARKER/p" "$rc_file")
+    block_lines=$(echo "$block" | wc -l | tr -d ' ')
+
+    if [ "$block_lines" -ne "$EXPECTED_LINES" ]; then
+        echo "  WARNING: Block in $rc_file has $block_lines lines (expected $EXPECTED_LINES)."
+        echo "  It may have been modified. Skipping to be safe."
+        echo "  Manually remove the block between '$START_MARKER' and '$END_MARKER'."
+        return
+    fi
+
+    # Verify it contains our function and nothing unexpected
+    if ! echo "$block" | grep -q "command claude"; then
+        echo "  WARNING: Block in $rc_file doesn't look like the claude-yolo function."
+        echo "  Skipping to be safe. Manually remove the block."
+        return
+    fi
+
+    # Safe to remove
     sed -i.bak "/$START_MARKER/,/$END_MARKER/d" "$rc_file"
     rm -f "${rc_file}.bak"
     echo "  Removed from $rc_file"

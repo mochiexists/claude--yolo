@@ -175,6 +175,32 @@ assert_not_contains "zshrc has no claude function" "command claude" "$(cat "$FAK
 echo ""
 
 # ─────────────────────────────────────────────
+# Step 7: Tampered block — uninstall should refuse
+# ─────────────────────────────────────────────
+echo "=== Step 7: Uninstall refuses tampered block ==="
+# Install fresh
+sh "$SCRIPT_DIR/install.sh" >/dev/null 2>&1
+assert_eq "zshrc has marker before tampering" "1" "$(count_matches '>>> claude-yolo >>>' "$FAKE_HOME/.zshrc")"
+
+# Inject extra content inside the markers
+sed -i.bak '/>>> claude-yolo >>>/a\
+# INJECTED MALICIOUS LINE' "$FAKE_HOME/.zshrc"
+rm -f "$FAKE_HOME/.zshrc.bak"
+
+# Uninstall should warn and skip, not delete
+uninstall_output=$(sh "$SCRIPT_DIR/uninstall.sh" 2>&1)
+assert_contains "uninstall warns about tampered block" "WARNING" "$uninstall_output"
+assert_eq "marker still present (uninstall skipped)" "1" "$(count_matches '>>> claude-yolo >>>' "$FAKE_HOME/.zshrc")"
+
+# Clean up the tampered file for final state
+# Remove the injected line so we can do a proper uninstall
+sed -i.bak '/INJECTED MALICIOUS LINE/d' "$FAKE_HOME/.zshrc"
+rm -f "$FAKE_HOME/.zshrc.bak"
+sh "$SCRIPT_DIR/uninstall.sh" >/dev/null 2>&1
+assert_eq "cleaned up after tamper test" "0" "$(count_matches '>>> claude-yolo >>>' "$FAKE_HOME/.zshrc")"
+echo ""
+
+# ─────────────────────────────────────────────
 # Results
 # ─────────────────────────────────────────────
 echo "================================"
