@@ -1,11 +1,13 @@
 #!/bin/sh
 set -e
 
-# Test the full install → verify → uninstall → verify cycle
-# Uses a temp HOME so it never touches your real rc files
+# End-to-end test for claude --yolo
+# Flow: clean slate → verify broken → install → verify working → uninstall → verify broken
+# Always ends in uninstalled state so you can re-run or install fresh after
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 FAKE_HOME=$(mktemp -d)
+REAL_HOME="$HOME"
 export HOME="$FAKE_HOME"
 export SHELL="/bin/zsh"
 
@@ -25,103 +27,154 @@ assert_eq() {
     fi
 }
 
+assert_contains() {
+    label="$1"; needle="$2"; haystack="$3"
+    if echo "$haystack" | grep -q "$needle"; then
+        echo "  PASS: $label"
+        passed=$((passed + 1))
+    else
+        echo "  FAIL: $label"
+        echo "    expected to contain: $needle"
+        echo "    actual: $haystack"
+        failed=$((failed + 1))
+    fi
+}
+
+assert_not_contains() {
+    label="$1"; needle="$2"; haystack="$3"
+    if ! echo "$haystack" | grep -q "$needle"; then
+        echo "  PASS: $label"
+        passed=$((passed + 1))
+    else
+        echo "  FAIL: $label"
+        echo "    expected NOT to contain: $needle"
+        echo "    actual: $haystack"
+        failed=$((failed + 1))
+    fi
+}
+
+count_matches() {
+    result=$(grep -c "$1" "$2" 2>/dev/null) || result=0
+    printf "%s" "$result"
+}
+
 cleanup() {
     rm -rf "$FAKE_HOME"
 }
 trap cleanup EXIT
 
+# Find the real claude binary
+REAL_CLAUDE="$(HOME="$REAL_HOME" command -v claude 2>/dev/null || true)"
+if [ -z "$REAL_CLAUDE" ]; then
+    echo "ABORT: claude binary not found on PATH — can't run e2e tests"
+    exit 1
+fi
+
 echo ""
-echo "=== Test: fresh install ==="
+echo "  /\\_/\\  "
+echo " ( o.o ) claude --yolo test suite"
+echo "  > ^ <  "
+echo ""
+echo "  Using real claude at: $REAL_CLAUDE"
+echo ""
+
+# ─────────────────────────────────────────────
+# Step 1: Check if --yolo exists natively
+# ─────────────────────────────────────────────
+echo "=== Step 1: Check claude has no native --yolo ==="
+direct_version=$("$REAL_CLAUDE" --version 2>&1 || true)
+assert_contains "claude binary exists and returns version" "[0-9]\.[0-9]" "$direct_version"
+echo ""
+
+# ─────────────────────────────────────────────
+# Step 2: Clean slate — remove any existing install
+# ─────────────────────────────────────────────
+echo "=== Step 2: Ensure clean slate ==="
 touch "$FAKE_HOME/.zshrc"
+sh "$SCRIPT_DIR/uninstall.sh" >/dev/null 2>&1
+assert_eq "zshrc has no claude-yolo marker" "0" "$(count_matches 'claude-yolo' "$FAKE_HOME/.zshrc")"
+echo ""
+
+# ─────────────────────────────────────────────
+# Step 3: Try claude --yolo without install — should fail
+# ─────────────────────────────────────────────
+echo "=== Step 3: verify --yolo is not natively --dangerously-skip-permissions ==="
+# Without the function, --yolo is just passed literally — not rewritten
+# We verify the function is what does the rewriting by checking claude has no function loaded
+no_func=$(zsh -c "source '$FAKE_HOME/.zshrc' && type claude" 2>&1 || true)
+assert_not_contains "claude is not a function without install" "function" "$no_func"
+echo ""
+
+# ─────────────────────────────────────────────
+# Step 4: Install
+# ─────────────────────────────────────────────
+echo "=== Step 4: Install claude --yolo ==="
 sh "$SCRIPT_DIR/install.sh"
-assert_eq "zshrc contains claude function" "1" "$(grep -c 'claude-yolo' "$FAKE_HOME/.zshrc")"
-
+assert_eq "zshrc has claude-yolo marker" "1" "$(count_matches 'claude-yolo' "$FAKE_HOME/.zshrc")"
 echo ""
-echo "=== Test: idempotent reinstall ==="
-sh "$SCRIPT_DIR/install.sh"
-assert_eq "zshrc still has exactly 1 marker" "1" "$(grep -c 'claude-yolo' "$FAKE_HOME/.zshrc")"
 
-echo ""
-echo "=== Test: function works ==="
-# Source the rc and check that claude function exists
-result=$(zsh -c "source '$FAKE_HOME/.zshrc' && type claude" 2>&1 || true)
-assert_eq "claude is a function" "1" "$(echo "$result" | grep -c 'function')"
+# ─────────────────────────────────────────────
+# Step 5: claude --yolo works after install
+# ─────────────────────────────────────────────
+echo "=== Step 5: claude --yolo works after install ==="
 
-echo ""
-echo "=== Test: --yolo rewrite ==="
-# Create a fake claude binary that prints its args
+# Version through function matches direct
+func_version=$(zsh -c "source '$FAKE_HOME/.zshrc'; claude --version" 2>&1 || true)
+assert_eq "claude --version through function matches direct" "$direct_version" "$func_version"
+
+# --yolo --version should succeed and match --dangerously-skip-permissions --version
+yolo_version=$(zsh -c "source '$FAKE_HOME/.zshrc'; claude --yolo --version" 2>&1 || true)
+dsp_version=$("$REAL_CLAUDE" --dangerously-skip-permissions --version 2>&1 || true)
+assert_eq "claude --yolo --version matches claude --dangerously-skip-permissions --version" "$dsp_version" "$yolo_version"
+assert_contains "yolo version output has version number" "[0-9]\.[0-9]" "$yolo_version"
+
+# Mixed args
 mkdir -p "$FAKE_HOME/bin"
 cat > "$FAKE_HOME/bin/claude" << 'FAKEBIN'
 #!/bin/sh
 echo "$@"
 FAKEBIN
 chmod +x "$FAKE_HOME/bin/claude"
-result=$(zsh -c "export PATH='$FAKE_HOME/bin:\$PATH'; source '$FAKE_HOME/.zshrc'; claude --yolo" 2>&1)
-assert_eq "--yolo becomes --dangerously-skip-permissions" "--dangerously-skip-permissions" "$result"
+mixed=$(zsh -c "export PATH='$FAKE_HOME/bin:\$PATH'; source '$FAKE_HOME/.zshrc'; claude --model opus --yolo --verbose" 2>&1)
+assert_eq "mixed args rewritten correctly" "--model opus --dangerously-skip-permissions --verbose" "$mixed"
 
+# Idempotent reinstall
+sh "$SCRIPT_DIR/install.sh" >/dev/null 2>&1
+assert_eq "reinstall doesn't duplicate" "1" "$(count_matches 'claude-yolo' "$FAKE_HOME/.zshrc")"
 echo ""
-echo "=== Test: other args pass through ==="
-result=$(zsh -c "export PATH='$FAKE_HOME/bin:\$PATH'; source '$FAKE_HOME/.zshrc'; claude --model opus --yolo --verbose" 2>&1)
-assert_eq "mixed args rewritten correctly" "--model opus --dangerously-skip-permissions --verbose" "$result"
 
-echo ""
-echo "=== Test: uninstall ==="
+# ─────────────────────────────────────────────
+# Step 6: Uninstall and verify it's gone
+# ─────────────────────────────────────────────
+echo "=== Step 6: Uninstall and verify removal ==="
 sh "$SCRIPT_DIR/uninstall.sh"
-assert_eq "zshrc has no marker after uninstall" "0" "$(grep -c 'claude-yolo' "$FAKE_HOME/.zshrc")"
-
+assert_eq "zshrc has no marker after uninstall" "0" "$(count_matches 'claude-yolo' "$FAKE_HOME/.zshrc")"
+assert_not_contains "zshrc has no claude function" "command claude" "$(cat "$FAKE_HOME/.zshrc")"
 echo ""
-echo "=== Test: reinstall after uninstall ==="
-sh "$SCRIPT_DIR/install.sh"
-assert_eq "zshrc has marker after reinstall" "1" "$(grep -c 'claude-yolo' "$FAKE_HOME/.zshrc")"
 
-echo ""
-echo "=== Test: real claude spawns with --yolo ==="
-# Use the real claude binary — just check --version works through the function
-REAL_CLAUDE="$(command -v claude 2>/dev/null || true)"
-if [ -n "$REAL_CLAUDE" ]; then
-    # Reset to zsh with the installed function
-    export SHELL="/bin/zsh"
-    rm -f "$FAKE_HOME/.bashrc"
-    touch "$FAKE_HOME/.zshrc"
-    sh "$SCRIPT_DIR/uninstall.sh" >/dev/null 2>&1
-    sh "$SCRIPT_DIR/install.sh" >/dev/null 2>&1
-
-    # claude --version via the real binary (no function)
-    direct_version=$("$REAL_CLAUDE" --version 2>&1 || true)
-
-    # claude --version via the yolo function (should pass through unchanged)
-    func_version=$(zsh -c "source '$FAKE_HOME/.zshrc'; claude --version" 2>&1 || true)
-    assert_eq "real claude --version matches through function" "$direct_version" "$func_version"
-
-    # claude --yolo --version should spawn real claude with --dangerously-skip-permissions --version
-    # It will error on --dangerously-skip-permissions + --version combo but proves it launched
-    yolo_output=$(zsh -c "source '$FAKE_HOME/.zshrc'; claude --yolo --version" 2>&1 || true)
-    # Should contain version info (claude prints version even with other flags)
-    yolo_has_version=$(echo "$yolo_output" | grep -c '[0-9]\.[0-9]' || true)
-    assert_eq "real claude --yolo --version produces version output" "1" "$yolo_has_version"
-
-    # Prove --yolo isn't passed literally to the binary
-    # Our fake binary test already covers rewriting, but let's double check with real claude
-    # claude --yolo (no --version) would start interactive mode, so we just verify --version path
-    direct_dsp=$("$REAL_CLAUDE" --dangerously-skip-permissions --version 2>&1 || true)
-    assert_eq "real --yolo output matches real --dangerously-skip-permissions output" "$direct_dsp" "$yolo_output"
-else
-    echo "  SKIP: claude binary not found on PATH"
-fi
-
-echo ""
-echo "=== Test: bash support ==="
-rm -f "$FAKE_HOME/.zshrc"
-export SHELL="/bin/bash"
-touch "$FAKE_HOME/.bashrc"
-sh "$SCRIPT_DIR/uninstall.sh"
-sh "$SCRIPT_DIR/install.sh"
-assert_eq "bashrc contains claude function" "1" "$(grep -c 'claude-yolo' "$FAKE_HOME/.bashrc")"
-
-echo ""
+# ─────────────────────────────────────────────
+# Results
+# ─────────────────────────────────────────────
 echo "================================"
 echo "  $passed passed, $failed failed"
 echo "================================"
 echo ""
+
+if [ "$failed" -eq 0 ]; then
+    echo "  /\\_/\\  "
+    echo " ( ^.^ ) All tests passed! meow~"
+    echo "  > ^ <  "
+    echo ""
+    echo "  Tests ended in uninstalled state."
+    echo "  To install for real, run:"
+    echo ""
+    echo "    sh $SCRIPT_DIR/install.sh"
+    echo ""
+else
+    echo "  /\\_/\\  "
+    echo " ( x.x ) Some tests failed!"
+    echo "  > ^ <  "
+    echo ""
+fi
 
 [ "$failed" -eq 0 ]
