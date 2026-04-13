@@ -10,7 +10,7 @@ Life's too short for `--dangerously-skip-permissions`.
 ## Install
 
 ```sh
-curl -fsSL https://mochiexists.github.io/claude-yolo/install.sh | sh
+curl -fsSL https://mochiexists.github.io/claude--yolo/install.sh | sh
 ```
 
 Then **open a new terminal**.
