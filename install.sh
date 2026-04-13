@@ -7,7 +7,7 @@ set -e
 
 FUNCTION_BLOCK='
 # claude-yolo: --yolo flag support for Claude Code
-# https://github.com/mochiexists/claude--yolo
+# https://github.com/mochiexists/yolo
 claude() {
     local args=()
     for arg in "$@"; do

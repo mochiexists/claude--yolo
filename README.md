@@ -10,7 +10,7 @@ Life's too short for `--dangerously-skip-permissions`.
 ## Install
 
 ```sh
-curl -fsSL https://mochiexists.github.io/claude--yolo/install.sh | sh
+curl -fsSL https://mochiexists.com/yolo/install.sh | sh
 ```
 
 Then **open a new terminal**.
@@ -21,7 +21,7 @@ Adds a shell function to your `.zshrc` / `.bashrc` that rewrites `--yolo` to `--
 
 Here's the entire install script — no surprises:
 
-https://github.com/mochiexists/claude--yolo/blob/main/install.sh
+https://github.com/mochiexists/yolo/blob/main/install.sh
 
 <details>
 <summary>View full source</summary>
@@ -36,7 +36,7 @@ set -e
 
 FUNCTION_BLOCK='
 # claude-yolo: --yolo flag support for Claude Code
-# https://github.com/mochiexists/claude--yolo
+# https://github.com/mochiexists/yolo
 claude() {
     local args=()
     for arg in "$@"; do
