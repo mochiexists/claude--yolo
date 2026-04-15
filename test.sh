@@ -119,10 +119,12 @@ assert_contains "block has __claude_yolo function" "__claude_yolo()" "$ACTUAL_BL
 assert_contains "block has precmd hook" "add-zsh-hook precmd" "$ACTUAL_BLOCK"
 assert_contains "block has --dangerously-skip-permissions rewrite" "dangerously-skip-permissions" "$ACTUAL_BLOCK"
 assert_contains "block has __claude_yolo_inner fallback" "__claude_yolo_inner" "$ACTUAL_BLOCK"
+assert_contains "block has cly alias" "alias cly=" "$ACTUAL_BLOCK"
+assert_contains "block has coy alias" "alias coy=" "$ACTUAL_BLOCK"
 
 # Verify line count is reasonable
 block_lines=$(echo "$ACTUAL_BLOCK" | wc -l | tr -d ' ')
-assert_eq "block has 28 lines" "28" "$block_lines"
+assert_eq "block has 30 lines" "30" "$block_lines"
 echo ""
 
 # ─────────────────────────────────────────────
@@ -149,6 +151,12 @@ FAKEBIN
 chmod +x "$FAKE_HOME/bin/claude"
 mixed=$(zsh -c "export PATH='$FAKE_HOME/bin:\$PATH'; source '$FAKE_HOME/.zshrc'; claude --model opus --yolo --verbose" 2>&1)
 assert_eq "mixed args rewritten correctly" "--model opus --dangerously-skip-permissions --verbose" "$mixed"
+
+# Shortcut aliases
+cly_def=$(zsh -c "source '$FAKE_HOME/.zshrc'; alias cly" 2>&1)
+coy_def=$(zsh -c "source '$FAKE_HOME/.zshrc'; alias coy" 2>&1)
+assert_contains "cly alias defined" "claude --yolo" "$cly_def"
+assert_contains "coy alias defined" "codex --yolo" "$coy_def"
 
 # Idempotent reinstall
 reinstall_output=$(sh "$SCRIPT_DIR/install.sh" 2>&1)
@@ -301,6 +309,8 @@ assert_eq "bashrc has claude-yolo marker" "1" "$(count_matches '>>> claude-yolo 
 BASH_BLOCK=$(sed -n '/>>> claude-yolo >>>/,/<<< claude-yolo <<</p' "$FAKE_BASH_HOME/.bashrc")
 assert_contains "bash block has PROMPT_COMMAND hook" "PROMPT_COMMAND=" "$BASH_BLOCK"
 assert_contains "bash block has __claude_yolo hook" "__claude_yolo_hook()" "$BASH_BLOCK"
+assert_contains "bash block has cly alias" "alias cly=" "$BASH_BLOCK"
+assert_contains "bash block has coy alias" "alias coy=" "$BASH_BLOCK"
 
 mkdir -p "$FAKE_BASH_HOME/bin"
 cat > "$FAKE_BASH_HOME/bin/claude" << 'FAKEBASHBIN'

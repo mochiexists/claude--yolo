@@ -7,6 +7,13 @@ Life's too short for `--dangerously-skip-permissions`.
 + claude --yolo
 ```
 
+Also installs shortcuts:
+
+| Shortcut | Expands to |
+|----------|------------|
+| `cly` | `claude --yolo` |
+| `coy` | `codex --yolo` |
+
 ## Install
 
 ```sh
