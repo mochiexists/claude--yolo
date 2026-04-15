@@ -8,6 +8,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 FAKE_HOME=$(mktemp -d)
+FAKE_BASH_HOME=$(mktemp -d)
 REAL_HOME="$HOME"
 export HOME="$FAKE_HOME"
 export SHELL="/bin/zsh"
@@ -61,6 +62,7 @@ count_matches() {
 
 cleanup() {
     rm -rf "$FAKE_HOME"
+    rm -rf "$FAKE_BASH_HOME"
 }
 trap cleanup EXIT
 
@@ -149,7 +151,8 @@ mixed=$(zsh -c "export PATH='$FAKE_HOME/bin:\$PATH'; source '$FAKE_HOME/.zshrc';
 assert_eq "mixed args rewritten correctly" "--model opus --dangerously-skip-permissions --verbose" "$mixed"
 
 # Idempotent reinstall
-sh "$SCRIPT_DIR/install.sh" >/dev/null 2>&1
+reinstall_output=$(sh "$SCRIPT_DIR/install.sh" 2>&1)
+assert_contains "reinstall says already up to date" "Already up to date" "$reinstall_output"
 assert_eq "reinstall doesn't duplicate" "1" "$(count_matches '>>> claude-yolo >>>' "$FAKE_HOME/.zshrc")"
 echo ""
 
@@ -227,17 +230,16 @@ echo "=== Step 9: Uninstall refuses tampered block ==="
 sh "$SCRIPT_DIR/install.sh" >/dev/null 2>&1
 assert_eq "zshrc has marker before tampering" "1" "$(count_matches '>>> claude-yolo >>>' "$FAKE_HOME/.zshrc")"
 
-# Inject extra content inside the markers (enough to exceed 35-line limit)
-for i in $(seq 1 20); do
-    sed -i.bak "/>>> claude-yolo >>>/a\\
-# INJECTED LINE $i" "$FAKE_HOME/.zshrc"
-    rm -f "$FAKE_HOME/.zshrc.bak"
-done
+# Inject a small edit inside the markers
+sed -i.bak "/>>> claude-yolo >>>/a\\
+# INJECTED LINE" "$FAKE_HOME/.zshrc"
+rm -f "$FAKE_HOME/.zshrc.bak"
 
 # Uninstall should warn and skip
 uninstall_output=$(sh "$SCRIPT_DIR/uninstall.sh" 2>&1)
 assert_contains "uninstall warns about tampered block" "WARNING" "$uninstall_output"
 assert_eq "marker still present (uninstall skipped)" "1" "$(count_matches '>>> claude-yolo >>>' "$FAKE_HOME/.zshrc")"
+assert_contains "tampered line is still present after skipped uninstall" "INJECTED LINE" "$(cat "$FAKE_HOME/.zshrc")"
 
 # Clean up: remove tampered block manually and do a proper uninstall
 sed -i.bak "/>>> claude-yolo >>>/,/<<< claude-yolo <<</d" "$FAKE_HOME/.zshrc"
@@ -246,9 +248,27 @@ assert_eq "cleaned up after tamper test" "0" "$(count_matches '>>> claude-yolo >
 echo ""
 
 # ─────────────────────────────────────────────
-# Step 10: Uninstall handles legacy format
+# Step 10: Install refuses tampered block update
 # ─────────────────────────────────────────────
-echo "=== Step 10: Uninstall removes legacy block ==="
+echo "=== Step 10: Install refuses tampered block update ==="
+sh "$SCRIPT_DIR/install.sh" >/dev/null 2>&1
+assert_eq "zshrc has marker before tampered update" "1" "$(count_matches '>>> claude-yolo >>>' "$FAKE_HOME/.zshrc")"
+sed -i.bak "/>>> claude-yolo >>>/a\\
+# USER CUSTOM LINE" "$FAKE_HOME/.zshrc"
+rm -f "$FAKE_HOME/.zshrc.bak"
+tampered_install_output=$(sh "$SCRIPT_DIR/install.sh" 2>&1)
+assert_contains "install warns about tampered block" "WARNING" "$tampered_install_output"
+assert_eq "marker still present after skipped update" "1" "$(count_matches '>>> claude-yolo >>>' "$FAKE_HOME/.zshrc")"
+assert_contains "custom line survives skipped update" "USER CUSTOM LINE" "$(cat "$FAKE_HOME/.zshrc")"
+sed -i.bak "/>>> claude-yolo >>>/,/<<< claude-yolo <<</d" "$FAKE_HOME/.zshrc"
+rm -f "$FAKE_HOME/.zshrc.bak"
+assert_eq "cleaned up after skipped update test" "0" "$(count_matches '>>> claude-yolo >>>' "$FAKE_HOME/.zshrc")"
+echo ""
+
+# ─────────────────────────────────────────────
+# Step 11: Uninstall handles legacy format
+# ─────────────────────────────────────────────
+echo "=== Step 11: Uninstall removes legacy block ==="
 cat >> "$FAKE_HOME/.zshrc" << 'LEGACY_BLOCK'
 
 # >>> claude-yolo >>>
@@ -269,6 +289,32 @@ LEGACY_BLOCK
 assert_eq "legacy block is present" "1" "$(count_matches '>>> claude-yolo >>>' "$FAKE_HOME/.zshrc")"
 sh "$SCRIPT_DIR/uninstall.sh" >/dev/null 2>&1
 assert_eq "legacy block removed" "0" "$(count_matches '>>> claude-yolo >>>' "$FAKE_HOME/.zshrc")"
+echo ""
+
+# ─────────────────────────────────────────────
+# Step 12: Bash install/uninstall path works
+# ─────────────────────────────────────────────
+echo "=== Step 12: Bash install/uninstall works ==="
+touch "$FAKE_BASH_HOME/.bashrc"
+HOME="$FAKE_BASH_HOME" SHELL="/bin/bash" sh "$SCRIPT_DIR/install.sh" >/dev/null 2>&1
+assert_eq "bashrc has claude-yolo marker" "1" "$(count_matches '>>> claude-yolo >>>' "$FAKE_BASH_HOME/.bashrc")"
+BASH_BLOCK=$(sed -n '/>>> claude-yolo >>>/,/<<< claude-yolo <<</p' "$FAKE_BASH_HOME/.bashrc")
+assert_contains "bash block has PROMPT_COMMAND hook" "PROMPT_COMMAND=" "$BASH_BLOCK"
+assert_contains "bash block has __claude_yolo hook" "__claude_yolo_hook()" "$BASH_BLOCK"
+
+mkdir -p "$FAKE_BASH_HOME/bin"
+cat > "$FAKE_BASH_HOME/bin/claude" << 'FAKEBASHBIN'
+#!/bin/sh
+echo "$@"
+FAKEBASHBIN
+chmod +x "$FAKE_BASH_HOME/bin/claude"
+
+bash_clobber_result=$(HOME="$FAKE_BASH_HOME" bash --rcfile "$FAKE_BASH_HOME/.bashrc" -ic "export PATH='$FAKE_BASH_HOME/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'; claude(){ command claude INNER \"\$@\"; }; __claude_yolo_hook; claude --yolo --test" 2>&1)
+assert_contains "bash yolo rewrites after clobber" "dangerously-skip-permissions" "$bash_clobber_result"
+assert_contains "bash inner wrapper is preserved" "INNER" "$bash_clobber_result"
+
+HOME="$FAKE_BASH_HOME" sh "$SCRIPT_DIR/uninstall.sh" >/dev/null 2>&1
+assert_eq "bashrc marker removed on uninstall" "0" "$(count_matches '>>> claude-yolo >>>' "$FAKE_BASH_HOME/.bashrc")"
 echo ""
 
 # ─────────────────────────────────────────────

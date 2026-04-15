@@ -4,6 +4,87 @@ set -e
 # claude-yolo uninstaller
 # Removes the claude-yolo shell function from rc files
 
+LEGACY_BLOCK=$(cat <<'EOF'
+# >>> claude-yolo >>>
+# https://github.com/mochiexists/yolo
+claude() {
+    local args=()
+    for arg in "$@"; do
+        if [[ "$arg" == "--yolo" ]]; then
+            args+=("--dangerously-skip-permissions")
+        else
+            args+=("$arg")
+        fi
+    done
+    command claude "${args[@]}"
+}
+# <<< claude-yolo <<<
+EOF
+)
+
+ZSH_BLOCK=$(cat <<'EOF'
+# >>> claude-yolo >>>
+# https://github.com/mochiexists/yolo
+__claude_yolo() {
+    local args=()
+    for arg in "$@"; do
+        if [[ "$arg" == "--yolo" ]]; then
+            args+=("--dangerously-skip-permissions")
+        else
+            args+=("$arg")
+        fi
+    done
+    if (( $+functions[__claude_yolo_inner] )); then
+        __claude_yolo_inner "${args[@]}"
+    else
+        command claude "${args[@]}"
+    fi
+}
+__claude_yolo_hook() {
+    if (( $+functions[claude] )); then
+        [[ "${functions[claude]}" == *__claude_yolo* ]] && return 0
+        functions[__claude_yolo_inner]="${functions[claude]}"
+    fi
+    claude() { __claude_yolo "$@"; }
+}
+autoload -Uz add-zsh-hook
+__claude_yolo_hook
+add-zsh-hook precmd __claude_yolo_hook
+# <<< claude-yolo <<<
+EOF
+)
+
+BASH_BLOCK=$(cat <<'EOF'
+# >>> claude-yolo >>>
+# https://github.com/mochiexists/yolo
+__claude_yolo() {
+    local args=()
+    for arg in "$@"; do
+        if [[ "$arg" == "--yolo" ]]; then
+            args+=("--dangerously-skip-permissions")
+        else
+            args+=("$arg")
+        fi
+    done
+    if declare -f __claude_yolo_inner >/dev/null 2>&1; then
+        __claude_yolo_inner "${args[@]}"
+    else
+        command claude "${args[@]}"
+    fi
+}
+__claude_yolo_hook() {
+    if declare -f claude >/dev/null 2>&1; then
+        declare -f claude | grep -q __claude_yolo && return 0
+        eval "$(declare -f claude | sed '1s/^claude /__claude_yolo_inner /')"
+    fi
+    claude() { __claude_yolo "$@"; }
+}
+__claude_yolo_hook
+[[ "${PROMPT_COMMAND-}" == *__claude_yolo_hook* ]] || PROMPT_COMMAND="__claude_yolo_hook;${PROMPT_COMMAND-}"
+# <<< claude-yolo <<<
+EOF
+)
+
 START_MARKER=">>> claude-yolo >>>"
 END_MARKER="<<< claude-yolo <<<"
 
@@ -16,21 +97,12 @@ uninstall_from_rc() {
         return
     fi
 
-    # Extract the block and verify it looks like ours
+    # Extract the block and verify it matches a known install exactly.
     block=$(sed -n "/$START_MARKER/,/$END_MARKER/p" "$rc_file")
-    block_lines=$(echo "$block" | wc -l | tr -d ' ')
-
-    if [ "$block_lines" -gt 35 ]; then
-        echo "  WARNING: Block in $rc_file has $block_lines lines (expected < 35)."
+    if [ "$block" != "$ZSH_BLOCK" ] && [ "$block" != "$BASH_BLOCK" ] && [ "$block" != "$LEGACY_BLOCK" ]; then
+        echo "  WARNING: Block in $rc_file does not match a known claude-yolo install."
         echo "  It may have been modified. Skipping to be safe."
-        echo "  Manually remove the block between '$START_MARKER' and '$END_MARKER'."
-        return
-    fi
-
-    # Verify it contains our function (current or legacy format)
-    if ! echo "$block" | grep -qE "__claude_yolo|command claude"; then
-        echo "  WARNING: Block in $rc_file doesn't look like the claude-yolo function."
-        echo "  Skipping to be safe. Manually remove the block."
+        echo "  Manually review the block between '$START_MARKER' and '$END_MARKER'."
         return
     fi
 

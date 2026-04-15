@@ -8,7 +8,25 @@ set -e
 # Survives other tools (e.g. terminal multiplexers) that redefine `claude()`
 # by using a precmd/PROMPT_COMMAND hook that re-wraps after clobbering.
 
-ZSH_BLOCK='
+LEGACY_BLOCK=$(cat <<'EOF'
+# >>> claude-yolo >>>
+# https://github.com/mochiexists/yolo
+claude() {
+    local args=()
+    for arg in "$@"; do
+        if [[ "$arg" == "--yolo" ]]; then
+            args+=("--dangerously-skip-permissions")
+        else
+            args+=("$arg")
+        fi
+    done
+    command claude "${args[@]}"
+}
+# <<< claude-yolo <<<
+EOF
+)
+
+ZSH_BLOCK=$(cat <<'EOF'
 # >>> claude-yolo >>>
 # https://github.com/mochiexists/yolo
 __claude_yolo() {
@@ -36,9 +54,11 @@ __claude_yolo_hook() {
 autoload -Uz add-zsh-hook
 __claude_yolo_hook
 add-zsh-hook precmd __claude_yolo_hook
-# <<< claude-yolo <<<'
+# <<< claude-yolo <<<
+EOF
+)
 
-BASH_BLOCK='
+BASH_BLOCK=$(cat <<'EOF'
 # >>> claude-yolo >>>
 # https://github.com/mochiexists/yolo
 __claude_yolo() {
@@ -59,13 +79,15 @@ __claude_yolo() {
 __claude_yolo_hook() {
     if declare -f claude >/dev/null 2>&1; then
         declare -f claude | grep -q __claude_yolo && return 0
-        eval "$(declare -f claude | sed '"'"'1s/^claude /__claude_yolo_inner /'"'"')"
+        eval "$(declare -f claude | sed '1s/^claude /__claude_yolo_inner /')"
     fi
     claude() { __claude_yolo "$@"; }
 }
 __claude_yolo_hook
 [[ "${PROMPT_COMMAND-}" == *__claude_yolo_hook* ]] || PROMPT_COMMAND="__claude_yolo_hook;${PROMPT_COMMAND-}"
-# <<< claude-yolo <<<'
+# <<< claude-yolo <<<
+EOF
+)
 
 START_MARKER=">>> claude-yolo >>>"
 END_MARKER="<<< claude-yolo <<<"
@@ -73,11 +95,22 @@ END_MARKER="<<< claude-yolo <<<"
 install_to_rc() {
     rc_file="$1"
     block="$2"
+    legacy_block="$3"
     if [ ! -f "$rc_file" ]; then
         return
     fi
     if grep -q "$START_MARKER" "$rc_file" 2>/dev/null; then
-        # Update: remove old block, install new
+        existing_block=$(sed -n "/$START_MARKER/,/$END_MARKER/p" "$rc_file")
+        if [ "$existing_block" = "$block" ]; then
+            echo "  Already up to date in $rc_file"
+            return
+        fi
+        if [ "$existing_block" != "$legacy_block" ]; then
+            echo "  WARNING: Found an unrecognized claude-yolo block in $rc_file"
+            echo "  It may have been modified. Skipping to avoid overwriting it."
+            echo "  Remove the block between '$START_MARKER' and '$END_MARKER' to reinstall."
+            return
+        fi
         sed -i.bak "/$START_MARKER/,/$END_MARKER/d" "$rc_file"
         rm -f "${rc_file}.bak"
         printf "\n%s\n" "$block" >> "$rc_file"
@@ -100,14 +133,14 @@ installed=0
 # Install to zsh if .zshrc exists or zsh is the default shell
 if [ -f "$HOME/.zshrc" ] || [ "$(basename "$SHELL")" = "zsh" ]; then
     touch "$HOME/.zshrc"
-    install_to_rc "$HOME/.zshrc" "$ZSH_BLOCK"
+    install_to_rc "$HOME/.zshrc" "$ZSH_BLOCK" "$LEGACY_BLOCK"
     installed=1
 fi
 
 # Install to bash if .bashrc exists or bash is the default shell
 if [ -f "$HOME/.bashrc" ] || [ "$(basename "$SHELL")" = "bash" ]; then
     touch "$HOME/.bashrc"
-    install_to_rc "$HOME/.bashrc" "$BASH_BLOCK"
+    install_to_rc "$HOME/.bashrc" "$BASH_BLOCK" "$LEGACY_BLOCK"
     installed=1
 fi
 
