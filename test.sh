@@ -3,6 +3,7 @@ set -e
 
 # End-to-end test for claude --yolo
 # Flow: clean slate → verify broken → install → verify working → uninstall → verify broken
+# Also tests: update-in-place, clobbering resilience, tampered block safety
 # Always ends in uninstalled state so you can re-run or install fresh after
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -99,8 +100,6 @@ echo ""
 # Step 3: Try claude --yolo without install — should fail
 # ─────────────────────────────────────────────
 echo "=== Step 3: verify --yolo is not natively --dangerously-skip-permissions ==="
-# Without the function, --yolo is just passed literally — not rewritten
-# We verify the function is what does the rewriting by checking claude has no function loaded
 no_func=$(zsh -c "source '$FAKE_HOME/.zshrc' && type claude" 2>&1 || true)
 assert_not_contains "claude is not a function without install" "function" "$no_func"
 echo ""
@@ -112,27 +111,16 @@ echo "=== Step 4: Install claude --yolo ==="
 sh "$SCRIPT_DIR/install.sh"
 assert_eq "zshrc has claude-yolo marker" "1" "$(count_matches '>>> claude-yolo >>>' "$FAKE_HOME/.zshrc")"
 
-# Verify the installed block is exactly what we expect (no extra content)
-EXPECTED_BLOCK='# >>> claude-yolo >>>
-# https://github.com/mochiexists/yolo
-claude() {
-    local args=()
-    for arg in "$@"; do
-        if [[ "$arg" == "--yolo" ]]; then
-            args+=("--dangerously-skip-permissions")
-        else
-            args+=("$arg")
-        fi
-    done
-    command claude "${args[@]}"
-}
-# <<< claude-yolo <<<'
+# Verify the installed block contains key elements
 ACTUAL_BLOCK=$(sed -n '/>>> claude-yolo >>>/,/<<< claude-yolo <<</p' "$FAKE_HOME/.zshrc")
-assert_eq "installed block matches expected exactly" "$EXPECTED_BLOCK" "$ACTUAL_BLOCK"
+assert_contains "block has __claude_yolo function" "__claude_yolo()" "$ACTUAL_BLOCK"
+assert_contains "block has precmd hook" "add-zsh-hook precmd" "$ACTUAL_BLOCK"
+assert_contains "block has --dangerously-skip-permissions rewrite" "dangerously-skip-permissions" "$ACTUAL_BLOCK"
+assert_contains "block has __claude_yolo_inner fallback" "__claude_yolo_inner" "$ACTUAL_BLOCK"
 
-# Count lines between markers — should be exactly 14 (markers + function)
+# Verify line count is reasonable
 block_lines=$(echo "$ACTUAL_BLOCK" | wc -l | tr -d ' ')
-assert_eq "block has exactly 14 lines" "14" "$block_lines"
+assert_eq "block has 28 lines" "28" "$block_lines"
 echo ""
 
 # ─────────────────────────────────────────────
@@ -150,7 +138,7 @@ dsp_version=$("$REAL_CLAUDE" --dangerously-skip-permissions --version 2>&1 || tr
 assert_eq "claude --yolo --version matches claude --dangerously-skip-permissions --version" "$dsp_version" "$yolo_version"
 assert_contains "yolo version output has version number" "[0-9]\.[0-9]" "$yolo_version"
 
-# Mixed args
+# Mixed args with fake binary
 mkdir -p "$FAKE_HOME/bin"
 cat > "$FAKE_HOME/bin/claude" << 'FAKEBIN'
 #!/bin/sh
@@ -166,38 +154,121 @@ assert_eq "reinstall doesn't duplicate" "1" "$(count_matches '>>> claude-yolo >>
 echo ""
 
 # ─────────────────────────────────────────────
-# Step 6: Uninstall and verify it's gone
+# Step 6: Update-in-place works
 # ─────────────────────────────────────────────
-echo "=== Step 6: Uninstall and verify removal ==="
-sh "$SCRIPT_DIR/uninstall.sh"
-assert_eq "zshrc has no marker after uninstall" "0" "$(count_matches '>>> claude-yolo >>>' "$FAKE_HOME/.zshrc")"
-assert_not_contains "zshrc has no claude function" "command claude" "$(cat "$FAKE_HOME/.zshrc")"
+echo "=== Step 6: Update replaces old block ==="
+# Simulate an old-format block by replacing the current one
+sed -i.bak '/>>> claude-yolo >>>/,/<<< claude-yolo <<</d' "$FAKE_HOME/.zshrc"
+rm -f "$FAKE_HOME/.zshrc.bak"
+cat >> "$FAKE_HOME/.zshrc" << 'OLD_BLOCK'
+
+# >>> claude-yolo >>>
+# https://github.com/mochiexists/yolo
+claude() {
+    local args=()
+    for arg in "$@"; do
+        if [[ "$arg" == "--yolo" ]]; then
+            args+=("--dangerously-skip-permissions")
+        else
+            args+=("$arg")
+        fi
+    done
+    command claude "${args[@]}"
+}
+# <<< claude-yolo <<<
+OLD_BLOCK
+assert_eq "old block is present" "1" "$(count_matches '>>> claude-yolo >>>' "$FAKE_HOME/.zshrc")"
+
+# Run install — should update, not duplicate
+install_output=$(sh "$SCRIPT_DIR/install.sh" 2>&1)
+assert_contains "install says Updated" "Updated" "$install_output"
+assert_eq "still exactly one marker after update" "1" "$(count_matches '>>> claude-yolo >>>' "$FAKE_HOME/.zshrc")"
+
+# Verify it's the new format
+UPDATED_BLOCK=$(sed -n '/>>> claude-yolo >>>/,/<<< claude-yolo <<</p' "$FAKE_HOME/.zshrc")
+assert_contains "updated block has precmd hook" "add-zsh-hook precmd" "$UPDATED_BLOCK"
+assert_contains "updated block has __claude_yolo" "__claude_yolo()" "$UPDATED_BLOCK"
 echo ""
 
 # ─────────────────────────────────────────────
-# Step 7: Tampered block — uninstall should refuse
+# Step 7: Clobbering resilience
 # ─────────────────────────────────────────────
-echo "=== Step 7: Uninstall refuses tampered block ==="
+echo "=== Step 7: Survives function clobbering ==="
+
+# Test: another tool redefines claude(), then our hook re-wraps
+clobber_result=$(zsh -c "
+    export PATH='$FAKE_HOME/bin:\$PATH'
+    source '$FAKE_HOME/.zshrc'
+    # Simulate another tool clobbering claude()
+    claude() { command claude \"INNER\" \"\$@\"; }
+    # Simulate precmd firing — our hook should re-wrap
+    __claude_yolo_hook
+    # Now --yolo should work AND chain through the clobbered function
+    claude --yolo --test
+" 2>&1)
+assert_contains "yolo rewrites after clobber" "dangerously-skip-permissions" "$clobber_result"
+assert_contains "inner wrapper is preserved" "INNER" "$clobber_result"
+echo ""
+
+# ─────────────────────────────────────────────
+# Step 8: Uninstall and verify it's gone
+# ─────────────────────────────────────────────
+echo "=== Step 8: Uninstall and verify removal ==="
+sh "$SCRIPT_DIR/uninstall.sh"
+assert_eq "zshrc has no marker after uninstall" "0" "$(count_matches '>>> claude-yolo >>>' "$FAKE_HOME/.zshrc")"
+assert_not_contains "zshrc has no __claude_yolo" "__claude_yolo" "$(cat "$FAKE_HOME/.zshrc")"
+echo ""
+
+# ─────────────────────────────────────────────
+# Step 9: Tampered block — uninstall should refuse
+# ─────────────────────────────────────────────
+echo "=== Step 9: Uninstall refuses tampered block ==="
 # Install fresh
 sh "$SCRIPT_DIR/install.sh" >/dev/null 2>&1
 assert_eq "zshrc has marker before tampering" "1" "$(count_matches '>>> claude-yolo >>>' "$FAKE_HOME/.zshrc")"
 
-# Inject extra content inside the markers
-sed -i.bak '/>>> claude-yolo >>>/a\
-# INJECTED MALICIOUS LINE' "$FAKE_HOME/.zshrc"
-rm -f "$FAKE_HOME/.zshrc.bak"
+# Inject extra content inside the markers (enough to exceed 35-line limit)
+for i in $(seq 1 20); do
+    sed -i.bak "/>>> claude-yolo >>>/a\\
+# INJECTED LINE $i" "$FAKE_HOME/.zshrc"
+    rm -f "$FAKE_HOME/.zshrc.bak"
+done
 
-# Uninstall should warn and skip, not delete
+# Uninstall should warn and skip
 uninstall_output=$(sh "$SCRIPT_DIR/uninstall.sh" 2>&1)
 assert_contains "uninstall warns about tampered block" "WARNING" "$uninstall_output"
 assert_eq "marker still present (uninstall skipped)" "1" "$(count_matches '>>> claude-yolo >>>' "$FAKE_HOME/.zshrc")"
 
-# Clean up the tampered file for final state
-# Remove the injected line so we can do a proper uninstall
-sed -i.bak '/INJECTED MALICIOUS LINE/d' "$FAKE_HOME/.zshrc"
+# Clean up: remove tampered block manually and do a proper uninstall
+sed -i.bak "/>>> claude-yolo >>>/,/<<< claude-yolo <<</d" "$FAKE_HOME/.zshrc"
 rm -f "$FAKE_HOME/.zshrc.bak"
-sh "$SCRIPT_DIR/uninstall.sh" >/dev/null 2>&1
 assert_eq "cleaned up after tamper test" "0" "$(count_matches '>>> claude-yolo >>>' "$FAKE_HOME/.zshrc")"
+echo ""
+
+# ─────────────────────────────────────────────
+# Step 10: Uninstall handles legacy format
+# ─────────────────────────────────────────────
+echo "=== Step 10: Uninstall removes legacy block ==="
+cat >> "$FAKE_HOME/.zshrc" << 'LEGACY_BLOCK'
+
+# >>> claude-yolo >>>
+# https://github.com/mochiexists/yolo
+claude() {
+    local args=()
+    for arg in "$@"; do
+        if [[ "$arg" == "--yolo" ]]; then
+            args+=("--dangerously-skip-permissions")
+        else
+            args+=("$arg")
+        fi
+    done
+    command claude "${args[@]}"
+}
+# <<< claude-yolo <<<
+LEGACY_BLOCK
+assert_eq "legacy block is present" "1" "$(count_matches '>>> claude-yolo >>>' "$FAKE_HOME/.zshrc")"
+sh "$SCRIPT_DIR/uninstall.sh" >/dev/null 2>&1
+assert_eq "legacy block removed" "0" "$(count_matches '>>> claude-yolo >>>' "$FAKE_HOME/.zshrc")"
 echo ""
 
 # ─────────────────────────────────────────────

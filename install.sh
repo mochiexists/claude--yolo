@@ -4,11 +4,14 @@ set -e
 # claude-yolo installer
 # Adds a shell function that lets you use `claude --yolo`
 # instead of `claude --dangerously-skip-permissions`
+#
+# Survives other tools (e.g. terminal multiplexers) that redefine `claude()`
+# by using a precmd/PROMPT_COMMAND hook that re-wraps after clobbering.
 
-FUNCTION_BLOCK='
+ZSH_BLOCK='
 # >>> claude-yolo >>>
 # https://github.com/mochiexists/yolo
-claude() {
+__claude_yolo() {
     local args=()
     for arg in "$@"; do
         if [[ "$arg" == "--yolo" ]]; then
@@ -17,8 +20,51 @@ claude() {
             args+=("$arg")
         fi
     done
-    command claude "${args[@]}"
+    if (( $+functions[__claude_yolo_inner] )); then
+        __claude_yolo_inner "${args[@]}"
+    else
+        command claude "${args[@]}"
+    fi
 }
+__claude_yolo_hook() {
+    if (( $+functions[claude] )); then
+        [[ "${functions[claude]}" == *__claude_yolo* ]] && return 0
+        functions[__claude_yolo_inner]="${functions[claude]}"
+    fi
+    claude() { __claude_yolo "$@"; }
+}
+autoload -Uz add-zsh-hook
+__claude_yolo_hook
+add-zsh-hook precmd __claude_yolo_hook
+# <<< claude-yolo <<<'
+
+BASH_BLOCK='
+# >>> claude-yolo >>>
+# https://github.com/mochiexists/yolo
+__claude_yolo() {
+    local args=()
+    for arg in "$@"; do
+        if [[ "$arg" == "--yolo" ]]; then
+            args+=("--dangerously-skip-permissions")
+        else
+            args+=("$arg")
+        fi
+    done
+    if declare -f __claude_yolo_inner >/dev/null 2>&1; then
+        __claude_yolo_inner "${args[@]}"
+    else
+        command claude "${args[@]}"
+    fi
+}
+__claude_yolo_hook() {
+    if declare -f claude >/dev/null 2>&1; then
+        declare -f claude | grep -q __claude_yolo && return 0
+        eval "$(declare -f claude | sed '"'"'1s/^claude /__claude_yolo_inner /'"'"')"
+    fi
+    claude() { __claude_yolo "$@"; }
+}
+__claude_yolo_hook
+[[ "${PROMPT_COMMAND-}" == *__claude_yolo_hook* ]] || PROMPT_COMMAND="__claude_yolo_hook;${PROMPT_COMMAND-}"
 # <<< claude-yolo <<<'
 
 START_MARKER=">>> claude-yolo >>>"
@@ -26,14 +72,19 @@ END_MARKER="<<< claude-yolo <<<"
 
 install_to_rc() {
     rc_file="$1"
+    block="$2"
     if [ ! -f "$rc_file" ]; then
         return
     fi
     if grep -q "$START_MARKER" "$rc_file" 2>/dev/null; then
-        echo "  Already installed in $rc_file — skipping."
+        # Update: remove old block, install new
+        sed -i.bak "/$START_MARKER/,/$END_MARKER/d" "$rc_file"
+        rm -f "${rc_file}.bak"
+        printf "\n%s\n" "$block" >> "$rc_file"
+        echo "  Updated $rc_file"
         return
     fi
-    printf "\n%s\n" "$FUNCTION_BLOCK" >> "$rc_file"
+    printf "\n%s\n" "$block" >> "$rc_file"
     echo "  Added to $rc_file"
 }
 
@@ -49,14 +100,14 @@ installed=0
 # Install to zsh if .zshrc exists or zsh is the default shell
 if [ -f "$HOME/.zshrc" ] || [ "$(basename "$SHELL")" = "zsh" ]; then
     touch "$HOME/.zshrc"
-    install_to_rc "$HOME/.zshrc"
+    install_to_rc "$HOME/.zshrc" "$ZSH_BLOCK"
     installed=1
 fi
 
 # Install to bash if .bashrc exists or bash is the default shell
 if [ -f "$HOME/.bashrc" ] || [ "$(basename "$SHELL")" = "bash" ]; then
     touch "$HOME/.bashrc"
-    install_to_rc "$HOME/.bashrc"
+    install_to_rc "$HOME/.bashrc" "$BASH_BLOCK"
     installed=1
 fi
 
@@ -67,7 +118,7 @@ if [ "$installed" -eq 0 ]; then
     echo "  > ^ <  "
     echo ""
     echo "  Manually add this to your shell rc file:"
-    echo "$FUNCTION_BLOCK"
+    echo "$ZSH_BLOCK"
     exit 1
 fi
 

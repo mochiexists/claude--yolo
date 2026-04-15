@@ -6,7 +6,6 @@ set -e
 
 START_MARKER=">>> claude-yolo >>>"
 END_MARKER="<<< claude-yolo <<<"
-EXPECTED_LINES=14
 
 uninstall_from_rc() {
     rc_file="$1"
@@ -17,19 +16,19 @@ uninstall_from_rc() {
         return
     fi
 
-    # Extract the block and verify it's exactly what we installed
+    # Extract the block and verify it looks like ours
     block=$(sed -n "/$START_MARKER/,/$END_MARKER/p" "$rc_file")
     block_lines=$(echo "$block" | wc -l | tr -d ' ')
 
-    if [ "$block_lines" -ne "$EXPECTED_LINES" ]; then
-        echo "  WARNING: Block in $rc_file has $block_lines lines (expected $EXPECTED_LINES)."
+    if [ "$block_lines" -gt 35 ]; then
+        echo "  WARNING: Block in $rc_file has $block_lines lines (expected < 35)."
         echo "  It may have been modified. Skipping to be safe."
         echo "  Manually remove the block between '$START_MARKER' and '$END_MARKER'."
         return
     fi
 
-    # Verify it contains our function and nothing unexpected
-    if ! echo "$block" | grep -q "command claude"; then
+    # Verify it contains our function (current or legacy format)
+    if ! echo "$block" | grep -qE "__claude_yolo|command claude"; then
         echo "  WARNING: Block in $rc_file doesn't look like the claude-yolo function."
         echo "  Skipping to be safe. Manually remove the block."
         return
