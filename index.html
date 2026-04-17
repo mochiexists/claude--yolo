@@ -622,7 +622,7 @@
         <div class="stats-section fade-up">
             <div class="stats-toggle">
                 <button class="active" id="statsHuman" onclick="switchTypist('human')">human (40 wpm)</button>
-                <button id="statsVim" onclick="switchTypist('vim')">vim user (120 wpm)</button>
+                <button id="statsVim" onclick="switchTypist('vim')">vim user (200 wpm)</button>
             </div>
             <div class="stats">
                 <div class="stat">
@@ -894,9 +894,9 @@
                 perYear: function() { return ((38 * 100) - (3 * 100)) * 50 * 365 / 1000 / 3600; } // hours
             },
             vim: {
-                msPerChar: 33,
-                perInvoke: function() { return ((38 * 33) - (3 * 33)) / 1000; }, // 1.155s
-                perYear: function() { return ((38 * 33) - (3 * 33)) * 50 * 365 / 1000 / 3600; }
+                msPerChar: 20,
+                perInvoke: function() { return ((38 * 20) - (3 * 20)) / 1000; }, // 0.7s
+                perYear: function() { return ((38 * 20) - (3 * 20)) * 50 * 365 / 1000 / 3600; }
             }
         };
 
