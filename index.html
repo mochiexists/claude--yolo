@@ -621,7 +621,7 @@
 
         <div class="stats-section fade-up">
             <div class="stats-toggle">
-                <button class="active" id="statsHuman" onclick="switchTypist('human')">human (40 wpm)</button>
+                <button class="active" id="statsHuman" onclick="switchTypist('human')">human (80 wpm)</button>
                 <button id="statsVim" onclick="switchTypist('vim')">vim user (200 wpm)</button>
             </div>
             <div class="stats">
@@ -630,11 +630,11 @@
                     <div class="stat-label">fewer keystrokes</div>
                 </div>
                 <div class="stat">
-                    <div class="stat-number" id="statTime">10.5s</div>
+                    <div class="stat-number" id="statTime">5.3s</div>
                     <div class="stat-label">saved per invocation</div>
                 </div>
                 <div class="stat">
-                    <div class="stat-number" id="statYear">53.2h</div>
+                    <div class="stat-number" id="statYear">26.6h</div>
                     <div class="stat-label">saved per year</div>
                 </div>
             </div>
@@ -879,9 +879,9 @@
         var saved = 38 - 3; // 35 keystrokes saved
         var typistData = {
             human: {
-                msPerChar: 300,
-                perInvoke: function() { return (saved * 300) / 1000; },
-                perYear: function() { return (saved * 300) * 50 * 365 / 1000 / 3600; }
+                msPerChar: 150,
+                perInvoke: function() { return (saved * 150) / 1000; },
+                perYear: function() { return (saved * 150) * 50 * 365 / 1000 / 3600; }
             },
             vim: {
                 msPerChar: 60,
