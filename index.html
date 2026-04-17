@@ -630,11 +630,11 @@
                     <div class="stat-label">fewer keystrokes</div>
                 </div>
                 <div class="stat">
-                    <div class="stat-number" id="statTime">3.5s</div>
+                    <div class="stat-number" id="statTime">10.5s</div>
                     <div class="stat-label">saved per invocation</div>
                 </div>
                 <div class="stat">
-                    <div class="stat-number" id="statYear">17.7h</div>
+                    <div class="stat-number" id="statYear">53.2h</div>
                     <div class="stat-label">saved per year</div>
                 </div>
             </div>
@@ -773,8 +773,7 @@
             var pauseAfterDelete = 400;
             var pauseBetweenLoops = 2500;
             var keystrokeCount = 0;
-            var timerStart = 0;
-            var timerInterval = null;
+            var currentTypist = 'human'; // synced with stats toggle
 
             var sequence = [
                 { text: 'claude --dangerously-skip-permissions', phase: 'phase-red', reaction: '' },
@@ -782,24 +781,19 @@
                 { text: 'ccy', phase: 'phase-glow', reaction: '(O.O)' },
             ];
 
-            function startTimer() {
-                timerStart = Date.now();
+            // Expose so the stats toggle can update it
+            window._setTypist = function(mode) { currentTypist = mode; };
+
+            function resetMeta() {
                 keystrokeCount = 0;
                 updateMeta();
-                timerInterval = setInterval(function() {
-                    var elapsed = ((Date.now() - timerStart) / 1000).toFixed(1);
-                    metaTime.textContent = elapsed + 's';
-                }, 50);
-            }
-
-            function stopTimer() {
-                if (timerInterval) clearInterval(timerInterval);
             }
 
             function updateMeta() {
                 metaKeys.textContent = keystrokeCount + ' keystroke' + (keystrokeCount !== 1 ? 's' : '');
-                var elapsed = timerStart ? ((Date.now() - timerStart) / 1000).toFixed(1) : '0.0';
-                metaTime.textContent = elapsed + 's';
+                var msPerChar = typistData[currentTypist].msPerChar;
+                var simTime = (keystrokeCount * msPerChar / 1000).toFixed(1);
+                metaTime.textContent = simTime + 's';
 
                 // Style based on count
                 metaKeys.className = '';
@@ -818,15 +812,10 @@
                 function step() {
                     if (i <= text.length) {
                         termText.textContent = text.slice(0, i);
-                        if (i > 0) {
-                            keystrokeCount++;
-                            updateMeta();
-                        }
+                        if (i > 0) { keystrokeCount++; updateMeta(); }
                         i++;
                         setTimeout(step, typeSpeed);
-                    } else {
-                        callback();
-                    }
+                    } else { callback(); }
                 }
                 step();
             }
@@ -858,11 +847,10 @@
             function runSequence(index) {
                 var item = sequence[index];
                 terminal.className = 'terminal ' + item.phase;
-                startTimer();
+                resetMeta();
                 showReaction('');
 
                 typeText(item.text, function() {
-                    stopTimer();
                     showReaction(item.reaction);
                     setTimeout(function() {
                         showReaction('');
@@ -885,18 +873,20 @@
 
         /* ── Stats typist toggle ── */
         // 38 chars for `claude --dangerously-skip-permissions`, 3 for `ccy`
-        // human: ~40 WPM = ~100ms/char, vim user: ~120 WPM = ~33ms/char
+        // WPM → ms/char: 1 WPM = 5 chars/min, so ms/char = 60000 / (WPM * 5)
+        // human: 40 WPM = 300ms/char, vim user: 200 WPM = 60ms/char
         // 50 invocations/day, 365 days/year
+        var saved = 38 - 3; // 35 keystrokes saved
         var typistData = {
             human: {
-                msPerChar: 100,
-                perInvoke: function() { return ((38 * 100) - (3 * 100)) / 1000; }, // 3.5s
-                perYear: function() { return ((38 * 100) - (3 * 100)) * 50 * 365 / 1000 / 3600; } // hours
+                msPerChar: 300,
+                perInvoke: function() { return (saved * 300) / 1000; },
+                perYear: function() { return (saved * 300) * 50 * 365 / 1000 / 3600; }
             },
             vim: {
-                msPerChar: 20,
-                perInvoke: function() { return ((38 * 20) - (3 * 20)) / 1000; }, // 0.7s
-                perYear: function() { return ((38 * 20) - (3 * 20)) * 50 * 365 / 1000 / 3600; }
+                msPerChar: 60,
+                perInvoke: function() { return (saved * 60) / 1000; },
+                perYear: function() { return (saved * 60) * 50 * 365 / 1000 / 3600; }
             }
         };
 
@@ -916,6 +906,7 @@
             document.getElementById('statKeys').textContent = '12.7x';
             document.getElementById('statTime').textContent = data.perInvoke().toFixed(1) + 's';
             document.getElementById('statYear').textContent = data.perYear().toFixed(1) + 'h';
+            if (window._setTypist) window._setTypist(mode);
         }
 
         /* ── Install/Uninstall toggle ── */
