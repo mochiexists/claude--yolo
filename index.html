@@ -795,7 +795,10 @@
                     <input type="text" class="typing-input" id="typingInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="start typing...">
                     <div class="typing-controls">
                         <span class="typing-live">
-                            <span class="live-val" id="liveWpm">0</span> wpm &middot; <span class="live-val" id="liveErrors">0</span> errors
+                            <span class="live-val" id="liveKeys">0</span> keystrokes &middot;
+                            <span class="live-val" id="liveTime">0.0s</span> &middot;
+                            <span class="live-val" id="liveWpm">0</span> wpm &middot;
+                            <span class="live-val" id="liveErrors">0</span> errors
                         </span>
                         <button class="typing-restart" onclick="resetTypingTest()">restart</button>
                     </div>
@@ -959,13 +962,19 @@
                 updateMeta();
             }
 
+            var replayElapsedMs = 0; // for replay mode, shown as real elapsed time
+
             function updateMeta() {
                 metaKeys.textContent = keystrokeCount + ' keystroke' + (keystrokeCount !== 1 ? 's' : '');
-                var msPerChar = typistData[currentTypist].msPerChar;
-                var simTime = (keystrokeCount * msPerChar / 1000).toFixed(1);
+                var simTime;
+                if (currentTypist === 'you' && typistData.you.recordings) {
+                    simTime = (replayElapsedMs / 1000).toFixed(1);
+                } else {
+                    var msPerChar = typistData[currentTypist].msPerChar;
+                    simTime = (keystrokeCount * msPerChar / 1000).toFixed(1);
+                }
                 metaTime.textContent = simTime + 's';
 
-                // Style based on count
                 metaKeys.className = '';
                 metaTime.className = '';
                 if (keystrokeCount <= 3 && keystrokeCount > 0) {
@@ -977,7 +986,15 @@
                 }
             }
 
-            function typeText(text, callback) {
+            function typeText(text, callback, phaseIndex) {
+                // If user has a recording for this phase and they're in "you" mode, replay it
+                var recs = typistData.you && typistData.you.recordings;
+                if (currentTypist === 'you' && recs && recs[phaseIndex] && recs[phaseIndex].length) {
+                    replayRecording(recs[phaseIndex], callback);
+                    return;
+                }
+                // Default: smooth typing at typist's WPM
+                replayElapsedMs = 0;
                 var i = 0;
                 function step() {
                     if (i <= text.length) {
@@ -986,6 +1003,33 @@
                         i++;
                         setTimeout(step, typistData[currentTypist].msPerChar);
                     } else { callback(); }
+                }
+                step();
+            }
+
+            function replayRecording(recording, callback) {
+                replayElapsedMs = 0;
+                keystrokeCount = 0;
+                updateMeta();
+                var start = Date.now();
+                var i = 0;
+                function step() {
+                    if (i >= recording.length) {
+                        callback();
+                        return;
+                    }
+                    var snap = recording[i];
+                    var now = Date.now() - start;
+                    if (now >= snap.t) {
+                        termText.textContent = snap.v;
+                        keystrokeCount = i + 1;
+                        replayElapsedMs = snap.t;
+                        updateMeta();
+                        i++;
+                        step();
+                    } else {
+                        setTimeout(step, snap.t - now);
+                    }
                 }
                 step();
             }
@@ -1026,7 +1070,7 @@
                             }, 0);
                         });
                     }, pauseAfterType);
-                });
+                }, index);
             }
 
             setTimeout(function() { runSequence(0); }, 800);
@@ -1053,6 +1097,10 @@
 
         // Hydrate from localStorage if user has completed a test before
         var savedYouWpm = parseFloat(localStorage.getItem('yolo_you_wpm') || '0');
+        try {
+            var savedRec = localStorage.getItem('yolo_you_recording');
+            if (savedRec) typistData.you.recordings = JSON.parse(savedRec);
+        } catch (e) { /* ignore malformed */ }
         if (savedYouWpm > 0) {
             typistData.you.msPerChar = wpmToMsPerChar(savedYouWpm);
             document.getElementById('youWpm').textContent = Math.round(savedYouWpm);
@@ -1096,9 +1144,11 @@
         ];
         var typingState = {
             phase: 0,
-            startTime: 0,
+            phaseStartTime: 0,
             errors: 0,
+            keystrokes: 0,
             phaseResults: [],
+            recordings: [], // recordings[phase] = [{t, v}]
             liveTimer: null
         };
 
@@ -1130,15 +1180,21 @@
             }
             typingState.errors = errors;
             document.getElementById('liveErrors').textContent = errors;
+            document.getElementById('liveKeys').textContent = typingState.keystrokes;
 
-            if (typingState.startTime > 0 && typed.length > 0) {
-                var elapsed = (Date.now() - typingState.startTime) / 1000 / 60;
-                var correctChars = 0;
-                for (var j = 0; j < typed.length && j < target.length; j++) {
-                    if (typed[j] === target[j]) correctChars++;
+            if (typingState.phaseStartTime > 0) {
+                var elapsedMs = Date.now() - typingState.phaseStartTime;
+                document.getElementById('liveTime').textContent = (elapsedMs / 1000).toFixed(1) + 's';
+
+                if (typed.length > 0) {
+                    var elapsedMin = elapsedMs / 1000 / 60;
+                    var correctChars = 0;
+                    for (var j = 0; j < typed.length && j < target.length; j++) {
+                        if (typed[j] === target[j]) correctChars++;
+                    }
+                    var wpm = elapsedMin > 0 ? Math.round((correctChars / 5) / elapsedMin) : 0;
+                    document.getElementById('liveWpm').textContent = wpm;
                 }
-                var wpm = elapsed > 0 ? Math.round((correctChars / 5) / elapsed) : 0;
-                document.getElementById('liveWpm').textContent = wpm;
             }
         }
 
@@ -1147,18 +1203,30 @@
             var target = typingPhases[typingState.phase];
             var typed = input.value;
 
-            if (typingState.startTime === 0 && typed.length > 0) {
-                typingState.startTime = Date.now();
-                if (!typingState.liveTimer) {
-                    typingState.liveTimer = setInterval(updateLiveStats, 100);
+            if (typingState.phaseStartTime === 0 && typed.length > 0) {
+                typingState.phaseStartTime = Date.now();
+                if (!typingState.recordings[typingState.phase]) {
+                    typingState.recordings[typingState.phase] = [];
                 }
+                if (!typingState.liveTimer) {
+                    typingState.liveTimer = setInterval(updateLiveStats, 60);
+                }
+            }
+
+            // Count keystroke (any input event counts — type, backspace, paste)
+            typingState.keystrokes++;
+
+            // Record snapshot with relative timestamp
+            if (typingState.phaseStartTime > 0) {
+                var t = Date.now() - typingState.phaseStartTime;
+                typingState.recordings[typingState.phase].push({ t: t, v: typed });
             }
 
             renderTypingTarget(target, typed);
             updateLiveStats();
 
             if (typed === target) {
-                var timeMs = Date.now() - typingState.startTime;
+                var timeMs = Date.now() - typingState.phaseStartTime;
                 typingState.phaseResults.push({
                     chars: target.length,
                     timeMs: timeMs,
@@ -1170,12 +1238,13 @@
                     finishTypingTest();
                 } else {
                     input.value = '';
-                    typingState.startTime = 0;
+                    typingState.phaseStartTime = 0;
                     typingState.errors = 0;
                     document.getElementById('phaseCounter').textContent = (typingState.phase + 1) + ' / ' + typingPhases.length;
                     renderTypingTarget(typingPhases[typingState.phase], '');
                     document.getElementById('liveWpm').textContent = '0';
                     document.getElementById('liveErrors').textContent = '0';
+                    document.getElementById('liveTime').textContent = '0.0s';
                 }
             }
         }
@@ -1196,7 +1265,11 @@
             var wpm = minutes > 0 ? (totalChars / 5) / minutes : 0;
 
             localStorage.setItem('yolo_you_wpm', wpm.toString());
+            try {
+                localStorage.setItem('yolo_you_recording', JSON.stringify(typingState.recordings));
+            } catch (e) { /* storage full or disabled */ }
             savedYouWpm = wpm;
+            typistData.you.recordings = typingState.recordings;
 
             var breakdownLines = typingState.phaseResults.map(function(r, i) {
                 var mins = r.timeMs / 1000 / 60;
@@ -1233,14 +1306,18 @@
         function resetTypingTest() {
             typingState = {
                 phase: 0,
-                startTime: 0,
+                phaseStartTime: 0,
                 errors: 0,
+                keystrokes: 0,
                 phaseResults: [],
+                recordings: [],
                 liveTimer: null
             };
             document.getElementById('typingActive').style.display = 'block';
             document.getElementById('typingDone').style.display = 'none';
             document.getElementById('phaseCounter').textContent = '1 / ' + typingPhases.length;
+            document.getElementById('liveKeys').textContent = '0';
+            document.getElementById('liveTime').textContent = '0.0s';
             document.getElementById('liveWpm').textContent = '0';
             document.getElementById('liveErrors').textContent = '0';
             var input = document.getElementById('typingInput');
