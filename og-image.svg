@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="45%" r="70%">
+      <stop offset="0%" stop-color="#1a1824"/>
+      <stop offset="55%" stop-color="#0e0d16"/>
+      <stop offset="100%" stop-color="#07060b"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#7c6f9c" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#7c6f9c" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="600" cy="290" r="340" fill="url(#glow)"/>
+
+  <!-- Cat face, centered and scaled up (viewBox equivalent of 0-64 scaled ~5.5x, centered) -->
+  <g transform="translate(425, 60) scale(5.5)">
+    <!-- Ears (triangular, filled) -->
+    <path d="M14 28 L20 10 L28 24 Z" fill="#a99bc8"/>
+    <path d="M36 24 L44 10 L50 28 Z" fill="#a99bc8"/>
+    <!-- Inner ears -->
+    <path d="M18 24 L21 15 L25 22 Z" fill="#c48b9f" opacity="0.6"/>
+    <path d="M39 22 L43 15 L46 24 Z" fill="#c48b9f" opacity="0.6"/>
+    <!-- Head -->
+    <ellipse cx="32" cy="36" rx="18" ry="16" fill="#a99bc8"/>
+    <!-- Cheeks (blush) -->
+    <ellipse cx="19" cy="42" rx="4" ry="2.5" fill="#c48b9f" opacity="0.75"/>
+    <ellipse cx="45" cy="42" rx="4" ry="2.5" fill="#c48b9f" opacity="0.75"/>
+    <!-- Eyes (big round, open) -->
+    <circle cx="25" cy="35" r="3.5" fill="#131318"/>
+    <circle cx="39" cy="35" r="3.5" fill="#131318"/>
+    <!-- Eye highlights -->
+    <circle cx="26" cy="34" r="1" fill="#ffffff"/>
+    <circle cx="40" cy="34" r="1" fill="#ffffff"/>
+    <!-- Nose -->
+    <path d="M30 42 L34 42 L32 44 Z" fill="#131318"/>
+    <!-- Mouth -->
+    <path d="M32 44 Q30 47 28 46" fill="none" stroke="#131318" stroke-width="1.2" stroke-linecap="round"/>
+    <path d="M32 44 Q34 47 36 46" fill="none" stroke="#131318" stroke-width="1.2" stroke-linecap="round"/>
+  </g>
+
+  <!-- Title -->
+  <text x="600" y="520" text-anchor="middle" font-family="Georgia, 'Crimson Pro', serif" font-size="78" font-weight="300" fill="#d4d4dc" letter-spacing="-1">claude <tspan font-family="'JetBrains Mono', monospace" font-size="64" font-weight="500" fill="#b8a8d8">--yolo</tspan></text>
+
+  <!-- Tagline -->
+  <text x="600" y="580" text-anchor="middle" font-family="Georgia, 'Crimson Pro', serif" font-size="26" font-style="italic" fill="#7a7a8a" letter-spacing="0.5">life's too short for --dangerously-skip-permissions</text>
+</svg>
