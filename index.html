@@ -1347,6 +1347,37 @@
 
         document.getElementById('typingInput').addEventListener('input', onTypingInput);
 
+        // Block paste — this is a typing test, not a copy test
+        document.getElementById('typingInput').addEventListener('paste', function(e) {
+            e.preventDefault();
+            flagPasteAttempt();
+        });
+        // Also catch drag-drop
+        document.getElementById('typingInput').addEventListener('drop', function(e) {
+            e.preventDefault();
+            flagPasteAttempt();
+        });
+
+        function flagPasteAttempt() {
+            var prompt = document.querySelector('.typing-prompt-label');
+            var original = prompt.textContent;
+            prompt.textContent = 'nice try. type it yourself.';
+            prompt.style.color = 'var(--red)';
+            prompt.style.opacity = '1';
+            setTimeout(function() {
+                prompt.style.color = '';
+                prompt.style.opacity = '';
+                // Rebuild original with phase counter
+                while (prompt.firstChild) prompt.removeChild(prompt.firstChild);
+                prompt.appendChild(document.createTextNode('type this '));
+                var span = document.createElement('span');
+                span.className = 'phase-counter';
+                span.id = 'phaseCounter';
+                span.textContent = (typingState.phase + 1) + ' / ' + typingPhases.length;
+                prompt.appendChild(span);
+            }, 1600);
+        }
+
         // Ctrl+C (SIGINT) or Cmd/Ctrl+Backspace (clear-line) to restart the typing test
         // Enter on the result screen also restarts
         document.addEventListener('keydown', function(e) {
