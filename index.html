@@ -516,6 +516,228 @@
             line-height: 1.6;
         }
 
+        /* ── Submit form ── */
+        .submit-form {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(124, 111, 156, 0.12);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .submit-form input {
+            font-family: var(--mono);
+            font-size: 0.88rem;
+            padding: 0.55rem 0.9rem;
+            background: rgba(124, 111, 156, 0.08);
+            border: 1px solid rgba(124, 111, 156, 0.2);
+            border-radius: 7px;
+            color: var(--text);
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            letter-spacing: 0.01em;
+            min-width: 160px;
+        }
+
+        .submit-form input:focus {
+            border-color: var(--accent-bright);
+            box-shadow: 0 0 0 3px rgba(184, 168, 216, 0.1);
+        }
+
+        .submit-form button {
+            font-family: var(--mono);
+            font-size: 0.85rem;
+            padding: 0.55rem 1.1rem;
+            background: rgba(184, 168, 216, 0.15);
+            border: 1px solid rgba(184, 168, 216, 0.3);
+            border-radius: 7px;
+            color: var(--accent-bright);
+            cursor: pointer;
+            transition: all 0.2s;
+            letter-spacing: 0.02em;
+            box-shadow: 0 0 20px rgba(184, 168, 216, 0.1);
+        }
+
+        .submit-form button:hover:not(:disabled) {
+            background: rgba(184, 168, 216, 0.25);
+            box-shadow: 0 0 30px rgba(184, 168, 216, 0.2);
+        }
+
+        .submit-form button:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        .submit-status {
+            margin-top: 0.8rem;
+            font-family: 'Crimson Pro', Georgia, serif;
+            font-size: 1rem;
+            font-style: italic;
+            text-align: center;
+            line-height: 1.5;
+            animation: shakeIn 0.35s ease;
+        }
+
+        .submit-status.success {
+            color: var(--green);
+            opacity: 0.9;
+        }
+        .submit-status.success .rank-big {
+            font-family: var(--mono);
+            font-size: 1.6rem;
+            font-weight: 600;
+            color: var(--accent-bright);
+            text-shadow: 0 0 25px rgba(184, 168, 216, 0.3);
+            font-style: normal;
+            margin: 0 0.2em;
+        }
+        .submit-status.error {
+            color: var(--red);
+            opacity: 1;
+        }
+
+        @keyframes shakeIn {
+            0% { transform: translateX(0); opacity: 0; }
+            20% { transform: translateX(-6px); }
+            40% { transform: translateX(6px); }
+            60% { transform: translateX(-3px); }
+            80% { transform: translateX(3px); }
+            100% { transform: translateX(0); opacity: 1; }
+        }
+
+        .share-buttons {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            margin-top: 0.8rem;
+            flex-wrap: wrap;
+        }
+
+        .share-buttons button {
+            font-family: var(--mono);
+            font-size: 0.78rem;
+            padding: 0.45rem 0.9rem;
+            background: transparent;
+            border: 1px solid rgba(124, 111, 156, 0.25);
+            border-radius: 6px;
+            color: var(--text-dim);
+            cursor: pointer;
+            transition: all 0.2s;
+            letter-spacing: 0.03em;
+        }
+
+        .share-buttons button:hover {
+            border-color: var(--accent-bright);
+            color: var(--accent-bright);
+        }
+
+        /* ── Leaderboard ── */
+        .leaderboard-section {
+            margin-bottom: 3rem;
+        }
+
+        .leaderboard-title {
+            font-family: 'Crimson Pro', Georgia, serif;
+            font-size: 1.6rem;
+            font-weight: 300;
+            color: var(--text);
+            margin-bottom: 0.3rem;
+            letter-spacing: -0.01em;
+        }
+
+        .leaderboard-subtitle {
+            font-family: 'Crimson Pro', Georgia, serif;
+            font-size: 0.95rem;
+            font-style: italic;
+            color: var(--text-dim);
+            opacity: 0.55;
+            margin-bottom: 1.3rem;
+        }
+
+        .leaderboard {
+            font-family: var(--mono);
+            font-size: 0.88rem;
+            text-align: left;
+            background: rgba(124, 111, 156, 0.03);
+            border: 1px solid rgba(124, 111, 156, 0.12);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .leaderboard-row {
+            display: grid;
+            grid-template-columns: 40px 1fr auto auto;
+            gap: 0.8rem;
+            padding: 0.7rem 1.1rem;
+            align-items: center;
+            border-bottom: 1px solid rgba(124, 111, 156, 0.06);
+            transition: background 0.2s;
+        }
+
+        .leaderboard-row:last-child { border-bottom: none; }
+        .leaderboard-row.header {
+            background: rgba(124, 111, 156, 0.06);
+            font-size: 0.7rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            opacity: 0.6;
+        }
+        .leaderboard-row.me {
+            background: linear-gradient(90deg, rgba(184, 168, 216, 0.12), rgba(184, 168, 216, 0.04));
+            box-shadow: inset 3px 0 0 var(--accent-bright);
+        }
+        .leaderboard-row.podium-1 .lb-rank { color: #e8d79c; }
+        .leaderboard-row.podium-2 .lb-rank { color: #c8c8d0; }
+        .leaderboard-row.podium-3 .lb-rank { color: #c89b7c; }
+
+        .lb-rank {
+            color: var(--text-dim);
+            opacity: 0.7;
+            font-weight: 500;
+        }
+        .lb-handle {
+            color: var(--text);
+            opacity: 0.9;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .leaderboard-row.me .lb-handle {
+            color: var(--accent-bright);
+            font-weight: 500;
+        }
+        .lb-wpm {
+            color: var(--accent-bright);
+            font-weight: 500;
+        }
+        .lb-saved {
+            color: var(--text-dim);
+            opacity: 0.55;
+            font-size: 0.82rem;
+        }
+
+        .leaderboard-empty {
+            padding: 1.5rem 1rem;
+            text-align: center;
+            font-family: 'Crimson Pro', Georgia, serif;
+            font-style: italic;
+            color: var(--text-dim);
+            opacity: 0.5;
+        }
+
+        .leaderboard-loading {
+            padding: 1.5rem 1rem;
+            text-align: center;
+            font-family: var(--mono);
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            opacity: 0.5;
+        }
+
         @keyframes cursorBlink {
             0%, 100% { opacity: 0.7; }
             50% { opacity: 0; }
@@ -827,7 +1049,14 @@
                         <div class="typing-result-label">that's your real typing speed &mdash; stats updated above</div>
                         <div class="typing-result-breakdown" id="finalBreakdown"></div>
                     </div>
-                    <div class="typing-controls" style="justify-content: center;">
+
+                    <div class="submit-form" id="submitForm">
+                        <input type="text" id="submitHandle" placeholder="your handle" maxlength="24" autocomplete="off">
+                        <button id="submitBtn" onclick="submitToLeaderboard()">submit to leaderboard</button>
+                    </div>
+                    <div class="submit-status" id="submitStatus" style="display:none;"></div>
+
+                    <div class="typing-controls" style="justify-content: center; margin-top: 0.8rem;">
                         <button class="typing-restart" onclick="resetTypingTest()">try again</button>
                     </div>
                 </div>
@@ -862,6 +1091,14 @@
                 pi needs no shortening &mdash; it's already perfect<br>
                 speaking of letters, send me one at <a href="https://clawpost.org">clawpost.org</a>
             </p>
+        </div>
+
+        <div class="leaderboard-section fade-up">
+            <h2 class="leaderboard-title">leaderboard</h2>
+            <p class="leaderboard-subtitle">the fastest yolo typists on the internet</p>
+            <div class="leaderboard" id="leaderboard">
+                <div class="leaderboard-loading">loading...</div>
+            </div>
         </div>
 
         <div class="footer fade-up">
@@ -1342,6 +1579,11 @@
             input.value = '';
             input.disabled = false;
             renderTypingTarget(typingPhases[0], '');
+            // Reset submit form state for next attempt
+            var form = document.getElementById('submitForm');
+            var status = document.getElementById('submitStatus');
+            if (form) form.style.display = '';
+            if (status) { status.style.display = 'none'; while (status.firstChild) status.removeChild(status.firstChild); }
             setTimeout(function() { input.focus(); }, 50);
         }
 
@@ -1426,6 +1668,373 @@
                     btn.classList.remove('copied');
                 }, 2000);
             });
+        }
+
+        /* ── Leaderboard + sharing ── */
+        var LEADERBOARD_API = 'https://script.google.com/macros/s/AKfycbwRyTPGVCcyAwPYWhZdwFi9c8M5P43D1jUuwignuNo6AoD14nB8zWg8k8xc_ztOP0DZ/exec';
+        var MAX_SUBMIT_WPM = 400;
+
+        // Restore last handle
+        var savedHandle = localStorage.getItem('yolo_handle') || '';
+        if (savedHandle) document.getElementById('submitHandle').value = savedHandle;
+
+        // Highlight handle from URL if present
+        var highlightHandle = '';
+        try {
+            var urlParams = new URLSearchParams(window.location.search);
+            highlightHandle = (urlParams.get('h') || '').slice(0, 24);
+        } catch (e) { /* old browser */ }
+        // Also highlight own entry
+        var ownHandle = savedHandle;
+
+        function fetchLeaderboard() {
+            var el = document.getElementById('leaderboard');
+            while (el.firstChild) el.removeChild(el.firstChild);
+            var loading = document.createElement('div');
+            loading.className = 'leaderboard-loading';
+            loading.textContent = 'loading...';
+            el.appendChild(loading);
+
+            fetch(LEADERBOARD_API + '?t=' + Date.now())
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    renderLeaderboard(data.entries || []);
+                })
+                .catch(function() {
+                    while (el.firstChild) el.removeChild(el.firstChild);
+                    var empty = document.createElement('div');
+                    empty.className = 'leaderboard-empty';
+                    empty.textContent = 'leaderboard offline. try again later.';
+                    el.appendChild(empty);
+                });
+        }
+
+        function renderLeaderboard(entries) {
+            var el = document.getElementById('leaderboard');
+            while (el.firstChild) el.removeChild(el.firstChild);
+
+            if (!entries.length) {
+                var empty = document.createElement('div');
+                empty.className = 'leaderboard-empty';
+                empty.textContent = 'nobody has submitted yet. be the first.';
+                el.appendChild(empty);
+                return;
+            }
+
+            // Header
+            var header = document.createElement('div');
+            header.className = 'leaderboard-row header';
+            ['#', 'handle', 'wpm', 'saved/yr'].forEach(function(label) {
+                var cell = document.createElement('span');
+                cell.textContent = label;
+                header.appendChild(cell);
+            });
+            el.appendChild(header);
+
+            var top = entries.slice(0, 10);
+            top.forEach(function(entry, i) {
+                var row = document.createElement('div');
+                row.className = 'leaderboard-row';
+                if (i < 3) row.classList.add('podium-' + (i + 1));
+                var isHighlight = highlightHandle && entry.handle === highlightHandle;
+                var isMe = ownHandle && entry.handle === ownHandle;
+                if (isHighlight || isMe) row.classList.add('me');
+
+                var rank = document.createElement('span');
+                rank.className = 'lb-rank';
+                rank.textContent = '#' + (i + 1);
+                row.appendChild(rank);
+
+                var handle = document.createElement('span');
+                handle.className = 'lb-handle';
+                handle.textContent = entry.handle;
+                row.appendChild(handle);
+
+                var wpm = document.createElement('span');
+                wpm.className = 'lb-wpm';
+                wpm.textContent = Math.round(entry.wpm) + ' wpm';
+                row.appendChild(wpm);
+
+                // Saved per year: saved_s * 50 * 365 / 3600
+                var savedYr = (entry.saved_s * 50 * 365 / 3600).toFixed(1);
+                var saved = document.createElement('span');
+                saved.className = 'lb-saved';
+                saved.textContent = savedYr + 'h';
+                row.appendChild(saved);
+
+                el.appendChild(row);
+            });
+
+            // If my row is outside top 10, add a "..." and show mine
+            if (ownHandle) {
+                var myIdx = entries.findIndex(function(e) { return e.handle === ownHandle; });
+                if (myIdx >= 10) {
+                    var spacer = document.createElement('div');
+                    spacer.className = 'leaderboard-row';
+                    spacer.style.opacity = '0.3';
+                    spacer.style.textAlign = 'center';
+                    spacer.style.gridTemplateColumns = '1fr';
+                    spacer.textContent = '…';
+                    el.appendChild(spacer);
+
+                    var me = entries[myIdx];
+                    var myRow = document.createElement('div');
+                    myRow.className = 'leaderboard-row me';
+                    var rc = document.createElement('span'); rc.className = 'lb-rank'; rc.textContent = '#' + (myIdx + 1); myRow.appendChild(rc);
+                    var hc = document.createElement('span'); hc.className = 'lb-handle'; hc.textContent = me.handle; myRow.appendChild(hc);
+                    var wc = document.createElement('span'); wc.className = 'lb-wpm'; wc.textContent = Math.round(me.wpm) + ' wpm'; myRow.appendChild(wc);
+                    var sc = document.createElement('span'); sc.className = 'lb-saved'; sc.textContent = (me.saved_s * 50 * 365 / 3600).toFixed(1) + 'h'; myRow.appendChild(sc);
+                    el.appendChild(myRow);
+                }
+            }
+        }
+
+        function submitToLeaderboard() {
+            var handle = document.getElementById('submitHandle').value.trim();
+            var btn = document.getElementById('submitBtn');
+            var status = document.getElementById('submitStatus');
+
+            if (!handle) {
+                showSubmitStatus('pick a handle first', 'error');
+                return;
+            }
+            if (savedYouWpm > MAX_SUBMIT_WPM) {
+                showSubmitStatus("even vim users can't do that", 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'submitting...';
+
+            // Build total keystrokes + errors from the last completed typing test
+            var totalKeystrokes = 0;
+            var totalErrors = 0;
+            var breakdown = [];
+            (typingState.phaseResults || []).forEach(function(r, i) {
+                var mins = r.timeMs / 1000 / 60;
+                var phaseWpm = mins > 0 ? (r.chars / 5) / mins : 0;
+                breakdown.push({ wpm: Math.round(phaseWpm), ms: r.timeMs, errors: r.errors });
+                totalErrors += (r.errors || 0);
+            });
+            // Sum recording snapshots as keystroke count
+            (typistData.you.recordings || []).forEach(function(rec) {
+                if (rec && rec.length) totalKeystrokes += rec.length;
+            });
+
+            var payload = {
+                handle: handle,
+                wpm: savedYouWpm,
+                keystrokes: totalKeystrokes,
+                errors: totalErrors,
+                breakdown: breakdown,
+                recording: typistData.you.recordings || []
+            };
+
+            fetch(LEADERBOARD_API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(payload)
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                btn.disabled = false;
+                btn.textContent = 'submit to leaderboard';
+                if (data.ok) {
+                    localStorage.setItem('yolo_handle', handle);
+                    ownHandle = handle;
+                    showSubmitSuccess(data.rank, data.total, handle);
+                    fetchLeaderboard();
+                } else {
+                    showSubmitStatus(data.error || 'rejected', 'error');
+                }
+            })
+            .catch(function(err) {
+                btn.disabled = false;
+                btn.textContent = 'submit to leaderboard';
+                showSubmitStatus('network error, try again', 'error');
+            });
+        }
+
+        function showSubmitStatus(message, kind) {
+            var status = document.getElementById('submitStatus');
+            status.style.display = 'block';
+            status.className = 'submit-status ' + (kind || '');
+            while (status.firstChild) status.removeChild(status.firstChild);
+            status.textContent = message;
+        }
+
+        function showSubmitSuccess(rank, total, handle) {
+            var status = document.getElementById('submitStatus');
+            status.style.display = 'block';
+            status.className = 'submit-status success';
+            while (status.firstChild) status.removeChild(status.firstChild);
+
+            var line = document.createElement('div');
+            line.appendChild(document.createTextNode('ranked '));
+            var rankSpan = document.createElement('span');
+            rankSpan.className = 'rank-big';
+            rankSpan.textContent = '#' + rank;
+            line.appendChild(rankSpan);
+            line.appendChild(document.createTextNode(' of ' + total));
+            status.appendChild(line);
+
+            // Share buttons
+            var shareWrap = document.createElement('div');
+            shareWrap.className = 'share-buttons';
+
+            var tweetBtn = document.createElement('button');
+            tweetBtn.textContent = 'share on X';
+            tweetBtn.onclick = function() { shareOnX(handle, savedYouWpm, rank); };
+            shareWrap.appendChild(tweetBtn);
+
+            var copyBtn = document.createElement('button');
+            copyBtn.textContent = 'copy link';
+            copyBtn.onclick = function() { copyShareLink(handle, copyBtn); };
+            shareWrap.appendChild(copyBtn);
+
+            var imgBtn = document.createElement('button');
+            imgBtn.textContent = 'save image';
+            imgBtn.onclick = function() { downloadShareImage(handle, savedYouWpm, rank); };
+            shareWrap.appendChild(imgBtn);
+
+            status.appendChild(shareWrap);
+
+            // Hide form
+            document.getElementById('submitForm').style.display = 'none';
+        }
+
+        function buildShareURL(handle) {
+            return 'https://mochiexists.com/yolo/?h=' + encodeURIComponent(handle);
+        }
+
+        function buildShareText(handle, wpm, rank) {
+            var msPerChar = 60000 / (wpm * 5);
+            var savedPerInvoke = ((35 * msPerChar) / 1000).toFixed(1);
+            return 'typed `claude --dangerously-skip-permissions` at ' + Math.round(wpm) + ' wpm. ' +
+                   'saving ' + savedPerInvoke + 's every time I yolo instead.\n\n' +
+                   'ranked #' + rank + '. beat me →';
+        }
+
+        function shareOnX(handle, wpm, rank) {
+            var text = buildShareText(handle, wpm, rank);
+            var url = buildShareURL(handle);
+            // Try native share with image on mobile, fallback to Twitter intent
+            renderShareCanvas(handle, wpm, rank).then(function(blob) {
+                if (navigator.canShare && navigator.canShare({ files: [new File([blob], 'yolo.png', { type: 'image/png' })] })) {
+                    var file = new File([blob], 'yolo.png', { type: 'image/png' });
+                    navigator.share({ text: text, url: url, files: [file] }).catch(function() {
+                        openTwitterIntent(text, url);
+                    });
+                } else {
+                    // Desktop: download the image + open tweet composer
+                    downloadBlob(blob, 'yolo-' + handle + '.png');
+                    setTimeout(function() { openTwitterIntent(text, url); }, 400);
+                }
+            });
+        }
+
+        function openTwitterIntent(text, url) {
+            var intentUrl = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) +
+                            '&url=' + encodeURIComponent(url);
+            window.open(intentUrl, '_blank', 'noopener');
+        }
+
+        function copyShareLink(handle, btn) {
+            var url = buildShareURL(handle);
+            navigator.clipboard.writeText(url).then(function() {
+                var original = btn.textContent;
+                btn.textContent = 'copied!';
+                setTimeout(function() { btn.textContent = original; }, 1500);
+            });
+        }
+
+        function downloadShareImage(handle, wpm, rank) {
+            renderShareCanvas(handle, wpm, rank).then(function(blob) {
+                downloadBlob(blob, 'yolo-' + handle + '.png');
+            });
+        }
+
+        function downloadBlob(blob, filename) {
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(function() {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(a.href);
+            }, 100);
+        }
+
+        /* ── Canvas share image generator ── */
+        function renderShareCanvas(handle, wpm, rank) {
+            return new Promise(function(resolve) {
+                var W = 1200, H = 630;
+                var canvas = document.createElement('canvas');
+                canvas.width = W;
+                canvas.height = H;
+                var ctx = canvas.getContext('2d');
+
+                // Background gradient
+                var bg = ctx.createRadialGradient(W/2, H*0.45, 0, W/2, H*0.45, W*0.7);
+                bg.addColorStop(0, '#1a1824');
+                bg.addColorStop(0.55, '#0e0d16');
+                bg.addColorStop(1, '#07060b');
+                ctx.fillStyle = bg;
+                ctx.fillRect(0, 0, W, H);
+
+                // Glow
+                var glow = ctx.createRadialGradient(W/2, H*0.42, 0, W/2, H*0.42, 360);
+                glow.addColorStop(0, 'rgba(124, 111, 156, 0.22)');
+                glow.addColorStop(1, 'rgba(124, 111, 156, 0)');
+                ctx.fillStyle = glow;
+                ctx.fillRect(0, 0, W, H);
+
+                // ASCII cat
+                ctx.fillStyle = '#a99bc8';
+                ctx.textAlign = 'center';
+                ctx.font = '500 72px "JetBrains Mono", "SF Mono", Menlo, monospace';
+                ctx.fillText('/\\_/\\', W/2, 140);
+                ctx.fillText('( o.o )', W/2, 220);
+                ctx.fillText('> ^ <', W/2, 300);
+
+                // Big WPM
+                ctx.fillStyle = '#b8a8d8';
+                ctx.shadowColor = 'rgba(184, 168, 216, 0.5)';
+                ctx.shadowBlur = 30;
+                ctx.font = '600 140px "JetBrains Mono", "SF Mono", Menlo, monospace';
+                ctx.fillText(Math.round(wpm) + ' wpm', W/2, 440);
+                ctx.shadowBlur = 0;
+
+                // Handle + rank
+                ctx.fillStyle = '#d4d4dc';
+                ctx.font = '300 40px Georgia, "Crimson Pro", serif';
+                ctx.fillText(handle + '  ·  ranked #' + rank, W/2, 500);
+
+                // Tagline
+                ctx.fillStyle = '#7a7a8a';
+                ctx.font = 'italic 26px Georgia, "Crimson Pro", serif';
+                ctx.fillText('beat me at mochiexists.com/yolo', W/2, 560);
+
+                canvas.toBlob(function(blob) { resolve(blob); }, 'image/png');
+            });
+        }
+
+        // Handle Enter key in the submit input
+        document.getElementById('submitHandle').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                submitToLeaderboard();
+            }
+        });
+
+        // Initial fetch on load + auto-scroll to highlighted handle
+        fetchLeaderboard();
+        if (highlightHandle) {
+            setTimeout(function() {
+                var section = document.querySelector('.leaderboard-section');
+                if (section) section.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 600);
         }
 
     </script>
