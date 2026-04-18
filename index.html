@@ -1329,11 +1329,13 @@
 
         document.getElementById('typingInput').addEventListener('input', onTypingInput);
 
-        // Ctrl+C (or Cmd+C) to restart the typing test — terminal-style SIGINT
+        // Ctrl+C (SIGINT) or Cmd/Ctrl+Backspace (clear-line) to restart the typing test
         document.addEventListener('keydown', function(e) {
             var test = document.getElementById('typingTest');
             if (test.style.display === 'none') return;
-            if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+            var isRestart = ((e.ctrlKey || e.metaKey) && e.key === 'c') ||
+                            ((e.ctrlKey || e.metaKey) && (e.key === 'Backspace' || e.key === 'Delete'));
+            if (isRestart) {
                 e.preventDefault();
                 resetTypingTest();
             }
