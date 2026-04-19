@@ -211,14 +211,14 @@
             background: rgba(124, 111, 156, 0.05);
             border: 1px solid rgba(124, 111, 156, 0.1);
             border-radius: 12px;
-            padding: 1.4rem 1.5rem;
+            padding: 1.4rem 1.5rem 2.4rem;
             text-align: left;
             font-family: var(--mono);
             font-size: 1rem;
             margin-bottom: 3rem;
             position: relative;
             overflow: hidden;
-            min-height: 3.2rem;
+            min-height: 3.8rem;
         }
 
         .terminal::before {
@@ -273,15 +273,16 @@
         .terminal.phase-glow .terminal-text { color: var(--accent-bright); text-shadow: 0 0 25px rgba(184, 168, 216, 0.3); }
 
         .terminal-meta {
+            position: absolute;
+            left: 1.5rem;
+            bottom: 0.7rem;
             display: flex;
-            justify-content: flex-end;
-            gap: 1.2rem;
+            justify-content: flex-start;
+            gap: 1rem;
             font-family: var(--mono);
-            font-size: 0.7rem;
+            font-size: 0.68rem;
             color: var(--text-dim);
             opacity: 0.35;
-            margin-top: 0.5rem;
-            padding-right: 0.2rem;
             transition: opacity 0.3s;
         }
 
@@ -1100,8 +1101,8 @@
             h1 .flag { font-size: 1.6rem; }
             .tagline { font-size: 1rem; }
             .cat { font-size: 0.95rem; }
-            .terminal { font-size: 0.82rem; padding: 1.1rem 1.2rem; min-height: 3rem; }
-            .terminal-meta { font-size: 0.65rem; gap: 0.7rem; }
+            .terminal { font-size: 0.82rem; padding: 1.1rem 1.2rem 2rem; min-height: 3.4rem; }
+            .terminal-meta { font-size: 0.62rem; gap: 0.6rem; left: 1.2rem; bottom: 0.55rem; }
             .install-box, .install-box code { font-size: 0.72rem; padding-right: 2.5rem; }
             .install-box { padding: 0.85rem 2.5rem 0.85rem 0.95rem; }
             .install-note { font-size: 0.85rem; }
@@ -1186,10 +1187,10 @@
         <div class="fade-up">
             <div class="terminal" id="terminal">
                 <span class="terminal-prompt">$ </span><span class="terminal-text" id="termText"></span><span class="terminal-cursor"></span><span class="terminal-reaction" id="termReaction"></span>
-            </div>
-            <div class="terminal-meta">
-                <span id="metaKeys">0 keystrokes</span>
-                <span id="metaTime">0.0s</span>
+                <div class="terminal-meta">
+                    <span id="metaKeys">0 keystrokes</span>
+                    <span id="metaTime">0.0s</span>
+                </div>
             </div>
         </div>
 
@@ -1214,6 +1215,36 @@
                 </div>
             </div>
             <p class="stat-fine-print">* assuming 50 yolo invocations per day, because you're not a coward</p>
+        </div>
+
+        <div class="install-section fade-up">
+            <div class="install-toggle">
+                <button class="active" id="installBtn" onclick="switchInstall('install')">install</button>
+                <button id="uninstallBtn" onclick="switchInstall('uninstall')">uninstall</button>
+            </div>
+            <div class="install-box" onclick="copyCmd(this)" id="installBox">
+                <code id="installCode">curl -fsSL https://mochiexists.com/yolo/install.sh | sh</code>
+                <button class="copy-btn" aria-label="Copy">&#x2398;</button>
+            </div>
+            <p class="install-note">open a new terminal after installing</p>
+        </div>
+
+        <div class="shortcuts-area fade-up">
+            <p class="shortcuts-tagline">for those with time for no more than 3 letters</p>
+            <div class="shortcut-row">
+                <span class="shortcut-key">ccy</span>
+                <span class="shortcut-sep">&mdash;</span>
+                <span class="shortcut-val">claude --yolo</span>
+            </div>
+            <div class="shortcut-row">
+                <span class="shortcut-key">cxy</span>
+                <span class="shortcut-sep">&mdash;</span>
+                <span class="shortcut-val">codex --yolo</span>
+            </div>
+            <p class="aside">
+                pi needs no shortening &mdash; it's already perfect<br>
+                speaking of letters, send me one at <a href="https://clawpost.org">clawpost.org</a>
+            </p>
         </div>
 
         <div class="benchmark-card fade-up">
@@ -1275,36 +1306,6 @@
                     </div>
                 </div>
             </div>
-        </div>
-
-        <div class="install-section fade-up">
-            <div class="install-toggle">
-                <button class="active" id="installBtn" onclick="switchInstall('install')">install</button>
-                <button id="uninstallBtn" onclick="switchInstall('uninstall')">uninstall</button>
-            </div>
-            <div class="install-box" onclick="copyCmd(this)" id="installBox">
-                <code id="installCode">curl -fsSL https://mochiexists.com/yolo/install.sh | sh</code>
-                <button class="copy-btn" aria-label="Copy">&#x2398;</button>
-            </div>
-            <p class="install-note">open a new terminal after installing</p>
-        </div>
-
-        <div class="shortcuts-area fade-up">
-            <p class="shortcuts-tagline">for those with time for no more than 3 letters</p>
-            <div class="shortcut-row">
-                <span class="shortcut-key">ccy</span>
-                <span class="shortcut-sep">&mdash;</span>
-                <span class="shortcut-val">claude --yolo</span>
-            </div>
-            <div class="shortcut-row">
-                <span class="shortcut-key">cxy</span>
-                <span class="shortcut-sep">&mdash;</span>
-                <span class="shortcut-val">codex --yolo</span>
-            </div>
-            <p class="aside">
-                pi needs no shortening &mdash; it's already perfect<br>
-                speaking of letters, send me one at <a href="https://clawpost.org">clawpost.org</a>
-            </p>
         </div>
 
         <div class="footer fade-up">
