@@ -110,6 +110,23 @@
             margin: 0 auto;
         }
 
+        .split { text-align: center; }
+
+        @media (min-width: 980px) {
+            .container { max-width: 1060px; }
+            .split {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 2.4rem;
+                align-items: start;
+                text-align: left;
+                margin-top: 0.5rem;
+            }
+            .split-left, .split-right { min-width: 0; }
+            .split-left .stats-toggle-wrap { text-align: center; }
+            .split-left .stats-section { text-align: center; }
+        }
+
         /* ── Cat ── */
         .cat-wrap {
             margin-bottom: 1.5rem;
@@ -1225,16 +1242,18 @@
             </div>
         </div>
 
-        <div class="stats-toggle-wrap fade-up">
-            <div class="stats-toggle">
-                <button class="active" id="statsHuman" onclick="switchTypist('human')">human<span class="wpm-suffix"> (80 wpm)</span></button>
-                <button id="statsVim" onclick="switchTypist('vim')">vim user<span class="wpm-suffix"> (250 wpm)</span></button>
-                <button id="statsYou" onclick="switchTypist('you')">you<span class="wpm-suffix"> (<span id="youWpm">??</span> wpm)</span></button>
+        <div class="split">
+          <div class="split-left">
+            <div class="stats-toggle-wrap fade-up">
+                <div class="stats-toggle">
+                    <button class="active" id="statsHuman" onclick="switchTypist('human')">human<span class="wpm-suffix"> (80 wpm)</span></button>
+                    <button id="statsVim" onclick="switchTypist('vim')">vim user<span class="wpm-suffix"> (250 wpm)</span></button>
+                    <button id="statsYou" onclick="switchTypist('you')">you<span class="wpm-suffix"> (<span id="youWpm">??</span> wpm)</span></button>
+                </div>
             </div>
-        </div>
 
-        <div class="fade-up">
-            <div class="terminal" id="terminal" onclick="focusTerminalInput()">
+            <div class="fade-up">
+                <div class="terminal" id="terminal" onclick="focusTerminalInput()">
                 <span class="terminal-prompt">$ </span><span class="terminal-text" id="termText"></span><span class="terminal-cursor" id="termCursor"></span><span class="terminal-reaction" id="termReaction"></span>
                 <div class="terminal-meta">
                     <span id="metaKeys">0 keystrokes</span>
@@ -1268,7 +1287,8 @@
             </div>
             <p class="stat-fine-print">ccy is faster than typing it out &mdash; for everyone, no matter how fast you type</p>
         </div>
-
+          </div>
+          <div class="split-right">
         <div class="benchmark-card fade-up">
             <div class="benchmark-invite" id="benchmarkInvite" style="display: none;">
                 <span class="invite-text">
@@ -1312,6 +1332,8 @@
                     <button class="typing-restart" onclick="resetTypingTest()">try again</button>
                 </div>
             </div>
+        </div>
+          </div>
         </div>
 
         <div class="footer fade-up">
