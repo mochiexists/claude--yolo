@@ -1080,6 +1080,7 @@
                 <div class="terminal-meta">
                     <span id="metaKeys">0 keystrokes</span>
                     <span id="metaTime">0.0s</span>
+                    <span id="metaAcc" style="display:none;">100%</span>
                 </div>
                 <div class="terminal-badge" id="terminalBadge" style="display:none;">
                     <span class="badge-label">your turn</span>
@@ -1404,7 +1405,7 @@
 
             function enterTestMode(phaseIdx, totalPhases) {
                 mode = 'test';
-                runToken++; // kill any in-flight demo chain
+                runToken++;
                 terminal.className = 'terminal terminal-test';
                 showReaction('');
                 termText.textContent = '';
@@ -1413,15 +1414,22 @@
                 updateMeta();
                 badge.style.display = 'flex';
                 badgePhase.textContent = (phaseIdx + 1) + ' / ' + totalPhases;
+                var acc = document.getElementById('metaAcc');
+                if (acc) { acc.style.display = ''; acc.textContent = '100%'; acc.className = 'blazing'; }
             }
 
             function setTestPhase(phaseIdx, totalPhases) {
                 badgePhase.textContent = (phaseIdx + 1) + ' / ' + totalPhases;
             }
 
-            function setTestStats(keys, elapsedMs) {
+            function setTestStats(keys, elapsedMs, accuracy) {
                 keystrokeCount = keys;
                 replayElapsedMs = elapsedMs;
+                var acc = document.getElementById('metaAcc');
+                if (typeof accuracy === 'number' && acc) {
+                    acc.textContent = accuracy + '%';
+                    acc.className = accuracy >= 98 ? 'blazing' : accuracy >= 85 ? 'fast' : '';
+                }
                 updateMeta();
             }
 
@@ -1432,6 +1440,8 @@
 
             function exitTestMode() {
                 mode = 'demo';
+                var acc = document.getElementById('metaAcc');
+                if (acc) acc.style.display = 'none';
                 startDemo();
             }
 
@@ -1547,9 +1557,23 @@
             errors: 0,
             keystrokes: 0,
             phaseResults: [],
-            recordings: [], // recordings[phase] = [{t, v}]
-            liveTimer: null
+            recordings: [],
+            liveTimer: null,
+            cumulativeErrors: 0, // cumulative wrong-char hits this phase
+            lastTyped: ''        // prev input value (detect newly-typed chars)
         };
+
+        function currentAccuracyPct() {
+            var input = document.getElementById('typingInput');
+            var target = typingPhases[typingState.phase];
+            var typed = input ? input.value : '';
+            var correct = 0;
+            for (var i = 0; i < typed.length && i < target.length; i++) {
+                if (typed[i] === target[i]) correct++;
+            }
+            var denom = correct + typingState.cumulativeErrors;
+            return denom > 0 ? Math.round(correct / denom * 100) : 100;
+        }
 
         function updateLiveStats() {
             var input = document.getElementById('typingInput');
@@ -1561,7 +1585,7 @@
             }
             typingState.errors = errors;
             var elapsed = typingState.phaseStartTime > 0 ? (Date.now() - typingState.phaseStartTime) : 0;
-            terminalCtrl.setTestStats(typingState.keystrokes, elapsed);
+            terminalCtrl.setTestStats(typingState.keystrokes, elapsed, currentAccuracyPct());
         }
 
         function onTypingInput(e) {
@@ -1569,6 +1593,15 @@
             var input = document.getElementById('typingInput');
             var target = typingPhases[typingState.phase];
             var typed = input.value;
+            var prev = typingState.lastTyped || '';
+
+            // Count new wrong-char hits (cumulative — survives backspaces)
+            if (typed.length > prev.length) {
+                for (var i = prev.length; i < typed.length; i++) {
+                    if (typed[i] !== target[i]) typingState.cumulativeErrors++;
+                }
+            }
+            typingState.lastTyped = typed;
 
             if (typingState.phaseStartTime === 0 && typed.length > 0) {
                 typingState.phaseStartTime = Date.now();
@@ -1588,7 +1621,11 @@
 
             if (typed === target) {
                 var timeMs = Date.now() - typingState.phaseStartTime;
-                typingState.phaseResults.push({ chars: target.length, timeMs: timeMs, errors: typingState.errors });
+                typingState.phaseResults.push({
+                    chars: target.length,
+                    timeMs: timeMs,
+                    errors: typingState.cumulativeErrors
+                });
                 var reactions = ['', '(^.^)', '(O.O)'];
                 var reaction = reactions[typingState.phase] || '';
                 if (typingState.liveTimer) { clearInterval(typingState.liveTimer); typingState.liveTimer = null; }
@@ -1600,10 +1637,12 @@
                         typingState.phase = nextPhase;
                         typingState.phaseStartTime = 0;
                         typingState.errors = 0;
+                        typingState.cumulativeErrors = 0;
+                        typingState.lastTyped = '';
                         input.value = '';
                         terminalCtrl.setTestPhase(nextPhase, typingPhases.length);
                         terminalCtrl.renderTarget(typingPhases[nextPhase], '');
-                        terminalCtrl.setTestStats(typingState.keystrokes, 0);
+                        terminalCtrl.setTestStats(typingState.keystrokes, 0, 100);
                         focusTerminalInput();
                     });
                 }
@@ -1628,9 +1667,15 @@
             var breakdownLines = typingState.phaseResults.map(function(r, i) {
                 var mins = r.timeMs / 1000 / 60;
                 var phaseWpm = mins > 0 ? Math.round((r.chars / 5) / mins) : 0;
+                var acc = r.errors > 0 ? Math.round(r.chars / (r.chars + r.errors) * 100) : 100;
                 var label = i === 0 ? 'long' : i === 1 ? '--yolo' : 'ccy';
-                return label + ': ' + phaseWpm + ' wpm · ' + (r.timeMs / 1000).toFixed(1) + 's';
+                return label + ': ' + phaseWpm + ' wpm · ' + (r.timeMs / 1000).toFixed(1) + 's · ' + acc + '%';
             });
+
+            // Compute overall accuracy for submission
+            var totalErrs = 0, totalChars = 0;
+            typingState.phaseResults.forEach(function(r) { totalErrs += r.errors; totalChars += r.chars; });
+            typingState.finalAccuracy = totalChars > 0 ? Math.round(totalChars / (totalChars + totalErrs) * 100) : 100;
 
             document.getElementById('youWpm').textContent = Math.round(wpm);
             // Update stats without reopening test
@@ -1663,7 +1708,8 @@
         function resetTypingTest() {
             typingState = {
                 phase: 0, phaseStartTime: 0, errors: 0, keystrokes: 0,
-                phaseResults: [], recordings: [], liveTimer: null
+                phaseResults: [], recordings: [], liveTimer: null,
+                cumulativeErrors: 0, lastTyped: ''
             };
             var input = document.getElementById('typingInput');
             input.value = '';
@@ -1707,6 +1753,25 @@
                 label.textContent = original;
             }, 1600);
         }
+
+        function wordDeleteBackward(v) {
+            if (!v) return v;
+            if (/\s+$/.test(v)) return v.replace(/\s+$/, '');
+            if (/\w+$/.test(v)) return v.replace(/\w+$/, '');
+            return v.replace(/[^\w\s]+$/, '');
+        }
+
+        // Alt+Backspace → word-delete (macOS Option+Backspace behaviour). Intercept at the
+        // input in capture phase so we preempt the browser's native clear-line action.
+        document.getElementById('typingInput').addEventListener('keydown', function(e) {
+            if (!(e.altKey && !e.metaKey && !e.ctrlKey && e.key === 'Backspace')) return;
+            if (!terminalCtrl.isTestMode()) return;
+            e.preventDefault();
+            e.stopPropagation();
+            var input = e.target;
+            input.value = wordDeleteBackward(input.value);
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        }, true);
 
         // Ctrl+C or Cmd/Ctrl+Backspace restarts the test. Enter on the result screen also restarts.
         document.addEventListener('keydown', function(e) {
