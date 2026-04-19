@@ -341,11 +341,14 @@
             margin-bottom: 3rem;
         }
 
+        .stats-toggle-wrap {
+            margin-bottom: 0.9rem;
+        }
+
         .stats-toggle {
             display: inline-flex;
             flex-wrap: wrap;
             gap: 0;
-            margin-bottom: 1.2rem;
             background: rgba(124, 111, 156, 0.06);
             border-radius: 8px;
             padding: 3px;
@@ -1074,6 +1077,14 @@
             </div>
         </div>
 
+        <div class="stats-toggle-wrap fade-up">
+            <div class="stats-toggle">
+                <button class="active" id="statsHuman" onclick="switchTypist('human')">human<span class="wpm-suffix"> (80 wpm)</span></button>
+                <button id="statsVim" onclick="switchTypist('vim')">vim user<span class="wpm-suffix"> (250 wpm)</span></button>
+                <button id="statsYou" onclick="switchTypist('you')">you<span class="wpm-suffix"> (<span id="youWpm">??</span> wpm)</span></button>
+            </div>
+        </div>
+
         <div class="fade-up">
             <div class="terminal" id="terminal" onclick="focusTerminalInput()">
                 <span class="terminal-prompt">$ </span><span class="terminal-text" id="termText"></span><span class="terminal-cursor" id="termCursor"></span><span class="terminal-reaction" id="termReaction"></span>
@@ -1091,11 +1102,6 @@
         </div>
 
         <div class="stats-section fade-up">
-            <div class="stats-toggle">
-                <button class="active" id="statsHuman" onclick="switchTypist('human')">human<span class="wpm-suffix"> (80 wpm)</span></button>
-                <button id="statsVim" onclick="switchTypist('vim')">vim user<span class="wpm-suffix"> (250 wpm)</span></button>
-                <button id="statsYou" onclick="switchTypist('you')">you<span class="wpm-suffix"> (<span id="youWpm">??</span> wpm)</span></button>
-            </div>
             <div class="stats">
                 <div class="stat">
                     <div class="stat-number" id="statKeys">12.7x</div>
