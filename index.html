@@ -440,85 +440,94 @@
             text-align: center;
         }
 
-        .chart-phase {
-            margin-bottom: 1.2rem;
-            text-align: left;
-        }
-        .chart-phase:last-of-type { margin-bottom: 0.3rem; }
-
-        .chart-phase-label {
-            font-family: var(--mono);
-            font-size: 0.75rem;
-            color: var(--text-dim);
-            opacity: 0.6;
-            padding: 0 0.2rem 0.5rem;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
         .chart-row {
-            display: grid;
-            grid-template-columns: 46px 1fr 60px;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 0.18rem 0.2rem;
+            --tier-above: 0;
+            --tier-below: 0;
+            margin: 0 0 1.3rem;
+            text-align: left;
+            padding: 0 0.5rem;
+        }
+        .chart-row:last-of-type { margin-bottom: 0.8rem; }
+
+        .chart-label {
+            font-family: var(--mono);
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            opacity: 0.65;
+            /* Dynamic spacing: +1rem per collision tier above the track. */
+            margin-bottom: calc(1.7rem + var(--tier-above) * 0.95rem);
         }
 
-        .chart-row-name {
+        .chart-track {
+            position: relative;
+            height: 10px;
+            background: linear-gradient(90deg,
+                rgba(125, 184, 138, 0.24) 0%,
+                rgba(125, 184, 138, 0.14) 30%,
+                rgba(184, 168, 216, 0.14) 60%,
+                rgba(184, 125, 125, 0.24) 100%);
+            border-radius: 5px;
+            /* Dynamic spacing: +1rem per collision tier below the track. */
+            margin-bottom: calc(1.5rem + var(--tier-below) * 0.95rem);
+        }
+
+        .chart-marker {
+            position: absolute;
+            top: -6px;
+            bottom: -6px;
+            width: 2px;
+            transform: translateX(-50%);
+            background: var(--text-dim);
+            opacity: 0.55;
+            border-radius: 1px;
+            transition: left 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .chart-marker .marker-label {
+            position: absolute;
+            bottom: calc(100% + 5px);
+            left: 50%;
+            transform: translateX(-50%);
             font-family: var(--mono);
             font-size: 0.6rem;
-            letter-spacing: 0.16em;
+            letter-spacing: 0.14em;
             text-transform: uppercase;
             color: var(--text-dim);
-            opacity: 0.55;
+            opacity: 0.6;
+            white-space: nowrap;
         }
 
-        .chart-row-val {
+        .chart-marker .marker-val {
+            position: absolute;
+            top: calc(100% + 5px);
+            left: 50%;
+            transform: translateX(-50%);
             font-family: var(--mono);
-            font-size: 0.7rem;
+            font-size: 0.68rem;
             color: var(--text-dim);
             opacity: 0.7;
-            text-align: right;
+            white-space: nowrap;
             font-variant-numeric: tabular-nums;
         }
 
-        .chart-bar-track {
-            position: relative;
-            height: 8px;
-            background: rgba(124, 111, 156, 0.07);
-            border-radius: 4px;
-            overflow: hidden;
-        }
+        /* Collision tiers — pushed further from the track so neighbouring
+           labels/values never overlap. Assigned by JS based on marker spacing. */
+        .chart-marker.tier-1 .marker-label { bottom: calc(100% + 20px); }
+        .chart-marker.tier-2 .marker-label { bottom: calc(100% + 35px); }
+        .chart-marker.tier-1 .marker-val   { top: calc(100% + 22px); }
+        .chart-marker.tier-2 .marker-val   { top: calc(100% + 38px); }
 
-        .chart-bar-fill {
-            position: absolute;
-            inset: 0 auto 0 0;
-            width: 0;
-            border-radius: 4px;
-            background: linear-gradient(90deg,
-                rgba(142, 207, 154, 0.55) 0%,
-                rgba(142, 207, 154, 0.45) 30%,
-                rgba(184, 168, 216, 0.4) 60%,
-                rgba(207, 142, 142, 0.55) 100%);
-            background-size: 100% 100%;
-            background-repeat: no-repeat;
-            transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+        .chart-marker.is-you {
+            width: 3px;
+            opacity: 1;
+            background: var(--accent-bright);
+            box-shadow: 0 0 14px rgba(184, 168, 216, 0.55);
         }
-
-        .chart-row.is-you .chart-row-name,
-        .chart-row.is-you .chart-row-val {
+        .chart-marker.is-you .marker-label,
+        .chart-marker.is-you .marker-val {
             color: var(--accent-bright);
             opacity: 1;
             font-weight: 500;
-        }
-
-        .chart-row.is-you .chart-bar-fill {
-            background: linear-gradient(90deg,
-                rgba(184, 168, 216, 0.8) 0%,
-                rgba(184, 168, 216, 0.55) 60%,
-                rgba(207, 142, 142, 0.6) 100%);
-            box-shadow: 0 0 14px rgba(184, 168, 216, 0.35);
         }
 
         .chart-scale {
@@ -530,10 +539,8 @@
             text-transform: uppercase;
             color: var(--text-dim);
             opacity: 0.35;
-            margin-top: 0.4rem;
-            padding: 0 0.2rem;
-            padding-left: calc(46px + 0.75rem);
-            padding-right: calc(60px + 0.75rem);
+            margin-top: 0.3rem;
+            padding: 0 0.5rem;
         }
 
         .stats {
@@ -1188,10 +1195,12 @@
             .stat-label { font-size: 0.82rem; }
             .stat-fine-print { font-size: 0.78rem; }
 
-            /* Chart: tighter columns so the bar still has room to breathe */
-            .chart-phase-label { font-size: 0.7rem; }
-            .chart-row { grid-template-columns: 38px 1fr 50px; gap: 0.55rem; }
-            .chart-scale { padding-left: calc(38px + 0.55rem); padding-right: calc(50px + 0.55rem); }
+            /* Chart: tighter spacing on narrow screens */
+            .chart-row { padding: 0 0.2rem; margin-bottom: 2rem; }
+            .chart-label { font-size: 0.72rem; margin-bottom: 1.7rem; }
+            .chart-track { margin-bottom: 1.5rem; }
+            .chart-marker .marker-label { font-size: 0.55rem; }
+            .chart-marker .marker-val { font-size: 0.62rem; }
 
             /* Stats toggle — drop the wpm suffix, let buttons breathe */
             .stats-toggle { width: 100%; justify-content: center; }
@@ -1911,56 +1920,49 @@
             // Global scale: human typing the longest phrase. Shorter commands
             // visibly collapse toward "nothing".
             var maxSecs = typingPhases[0].length * (60000 / (80 * 5)) / 1000;
-
             function fmt(s) { return (s < 1 ? s.toFixed(2) : s.toFixed(1)) + 's'; }
 
+            var rowsToMeasure = [];
+
             typingPhases.forEach(function(phrase) {
-                var phaseEl = document.createElement('div');
-                phaseEl.className = 'chart-phase';
+                var row = document.createElement('div');
+                row.className = 'chart-row';
 
-                var phaseLabel = document.createElement('div');
-                phaseLabel.className = 'chart-phase-label';
-                phaseLabel.textContent = phrase;
-                phaseEl.appendChild(phaseLabel);
+                var label = document.createElement('div');
+                label.className = 'chart-label';
+                label.textContent = phrase;
+                row.appendChild(label);
 
-                cohort.forEach(function(c) {
-                    var row = document.createElement('div');
-                    row.className = 'chart-row' + (c.me ? ' is-you' : '');
+                var track = document.createElement('div');
+                track.className = 'chart-track';
 
-                    var name = document.createElement('span');
-                    name.className = 'chart-row-name';
-                    name.textContent = c.name;
-                    row.appendChild(name);
-
-                    var track = document.createElement('div');
-                    track.className = 'chart-bar-track';
-                    var fill = document.createElement('div');
-                    fill.className = 'chart-bar-fill';
-                    track.appendChild(fill);
-                    row.appendChild(track);
-
-                    var val = document.createElement('span');
-                    val.className = 'chart-row-val';
-                    row.appendChild(val);
-
-                    if (c.wpm <= 0) {
-                        val.textContent = '—';
-                        val.style.opacity = '0.35';
-                    } else {
-                        var secs = phrase.length * (60000 / (c.wpm * 5)) / 1000;
-                        var pct = Math.min(100, Math.max(1, (secs / maxSecs) * 100));
-                        row.title = c.name + ' @ ' + Math.round(c.wpm) + ' wpm: ' + fmt(secs);
-                        val.textContent = fmt(secs);
-                        // Stretch the gradient so each bar shows the slice of
-                        // the global green→red scale proportional to its length.
-                        fill.style.backgroundSize = (100 / pct * 100) + '% 100%';
-                        requestAnimationFrame(function() { fill.style.width = pct + '%'; });
-                    }
-
-                    phaseEl.appendChild(row);
+                var markers = cohort.filter(function(c) { return c.wpm > 0; }).map(function(c) {
+                    var secs = phrase.length * (60000 / (c.wpm * 5)) / 1000;
+                    var pct = Math.min(100, Math.max(0.5, (secs / maxSecs) * 100));
+                    return { key: c.key, name: c.name, wpm: c.wpm, me: c.me, secs: secs, pct: pct };
                 });
 
-                chart.appendChild(phaseEl);
+                markers.forEach(function(m) {
+                    var el = document.createElement('div');
+                    el.className = 'chart-marker is-' + m.key + (m.me ? ' is-you' : '');
+                    el.title = m.name + ' @ ' + Math.round(m.wpm) + ' wpm: ' + fmt(m.secs);
+                    el.style.left = '0%';
+                    var lbl = document.createElement('span');
+                    lbl.className = 'marker-label';
+                    lbl.textContent = m.name;
+                    el.appendChild(lbl);
+                    var val = document.createElement('span');
+                    val.className = 'marker-val';
+                    val.textContent = fmt(m.secs);
+                    el.appendChild(val);
+                    track.appendChild(el);
+                    m.el = el;
+                    requestAnimationFrame(function() { el.style.left = m.pct + '%'; });
+                });
+
+                row.appendChild(track);
+                chart.appendChild(row);
+                rowsToMeasure.push({ track: track, markers: markers });
             });
 
             var scale = document.createElement('div');
@@ -1969,6 +1971,45 @@
             var b = document.createElement('span'); b.textContent = fmt(maxSecs);
             scale.appendChild(a); scale.appendChild(b);
             chart.appendChild(scale);
+
+            // Tier-stack labels/values so neighbouring markers never overlap.
+            // Measured after layout so we can use the track's real pixel width.
+            function assignTiers() {
+                rowsToMeasure.forEach(function(row) {
+                    var w = row.track.offsetWidth;
+                    if (!w) return;
+                    // Width to reserve per label in px — covers "human" + wpm value.
+                    var reserve = 54;
+                    // "you" claims tier-0 first so the user's highlighted marker
+                    // always sits closest to the track; others stack around it.
+                    var sorted = row.markers.slice().sort(function(a, b) {
+                        if (a.me && !b.me) return -1;
+                        if (b.me && !a.me) return 1;
+                        return a.pct - b.pct;
+                    });
+                    var tierRight = [-Infinity, -Infinity, -Infinity];
+                    var maxTier = 0;
+                    sorted.forEach(function(m) {
+                        var cx = (m.pct / 100) * w;
+                        var left = cx - reserve / 2;
+                        var right = cx + reserve / 2;
+                        var tier = 0;
+                        while (tier < tierRight.length - 1 && left < tierRight[tier]) tier++;
+                        tierRight[tier] = right;
+                        m.el.classList.remove('tier-0', 'tier-1', 'tier-2');
+                        if (tier > 0) m.el.classList.add('tier-' + tier);
+                        if (tier > maxTier) maxTier = tier;
+                    });
+                    // Expand row's label/value reservation space based on how
+                    // deep the tier stack goes — prevents overflow into scale row.
+                    row.track.parentElement.style.setProperty('--tier-above', maxTier);
+                    row.track.parentElement.style.setProperty('--tier-below', maxTier);
+                });
+            }
+            // Run once after initial paint and again after the transition settles.
+            requestAnimationFrame(assignTiers);
+            setTimeout(assignTiers, 1000);
+            window.addEventListener('resize', assignTiers, { passive: true });
         }
 
         function revealStatsSection() {
