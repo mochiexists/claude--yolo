@@ -378,6 +378,99 @@
             color: var(--text);
         }
 
+        .stats-chart {
+            margin-bottom: 1.4rem;
+        }
+
+        .stats-chart-title {
+            font-family: 'Crimson Pro', Georgia, serif;
+            font-size: 1rem;
+            font-style: italic;
+            font-weight: 400;
+            color: var(--text);
+            opacity: 0.55;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .chart-row {
+            margin-bottom: 1.1rem;
+            text-align: left;
+        }
+
+        .chart-label {
+            font-family: var(--mono);
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            opacity: 0.55;
+            margin: 0 0 0.4rem 52px;
+        }
+
+        .chart-bars {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+
+        .chart-bar {
+            display: grid;
+            grid-template-columns: 44px 1fr 52px;
+            gap: 0.6rem;
+            align-items: center;
+            font-family: var(--mono);
+            font-size: 0.78rem;
+            padding: 2px 4px;
+            border-radius: 5px;
+            transition: background 0.2s;
+        }
+
+        .chart-bar:hover {
+            background: rgba(124, 111, 156, 0.06);
+        }
+
+        .bar-name {
+            color: var(--text-dim);
+            opacity: 0.55;
+            text-align: right;
+            letter-spacing: 0.02em;
+        }
+
+        .bar-track {
+            height: 8px;
+            background: rgba(124, 111, 156, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, rgba(124, 111, 156, 0.35), rgba(184, 168, 216, 0.55));
+            border-radius: 4px;
+            transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .bar-value {
+            color: var(--text-dim);
+            opacity: 0.5;
+            font-size: 0.72rem;
+            text-align: left;
+        }
+
+        .chart-bar.is-you .bar-name {
+            color: var(--accent-bright);
+            opacity: 1;
+            font-weight: 500;
+        }
+        .chart-bar.is-you .bar-fill {
+            background: linear-gradient(90deg, rgba(184, 168, 216, 0.55), rgba(184, 168, 216, 1));
+            box-shadow: 0 0 14px rgba(184, 168, 216, 0.35);
+        }
+        .chart-bar.is-you .bar-value {
+            color: var(--accent-bright);
+            opacity: 1;
+            font-weight: 500;
+        }
+
         .stats {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -1101,7 +1194,8 @@
             <input type="text" id="typingInput" class="terminal-input-hidden" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-hidden="true" tabindex="-1">
         </div>
 
-        <div class="stats-section fade-up">
+        <div class="stats-section fade-up" id="statsSection" style="display:none;">
+            <div class="stats-chart" id="statsChart"></div>
             <div class="stats">
                 <div class="stat">
                     <div class="stat-number" id="statKeys">12.7x</div>
@@ -1116,7 +1210,7 @@
                     <div class="stat-label">saved per year</div>
                 </div>
             </div>
-            <p class="stat-fine-print">* assuming 50 yolo invocations per day, because you're not a coward</p>
+            <p class="stat-fine-print">ccy is faster than typing it out &mdash; for everyone, no matter how fast you type</p>
         </div>
 
         <div class="benchmark-card fade-up">
@@ -1501,6 +1595,7 @@
             var ctaSub = document.querySelector('#benchmarkCtaBtn .cta-sub');
             if (ctaMain) ctaMain.textContent = 'your result: ' + Math.round(savedYouWpm) + ' wpm';
             if (ctaSub) ctaSub.textContent = 'tap to try again';
+            setTimeout(function() { revealStatsSection(); }, 300);
         }
 
         function switchTypist(mode, opts) {
@@ -1689,7 +1784,70 @@
             switchTypist('you', { suppressOpen: true });
             // terminal exits test mode → demo resumes; will replay user's recording (currentTypist='you' + recordings set)
             terminalCtrl.exitTestMode();
+            revealStatsSection();
             showTypingResult(wpm, breakdownLines);
+        }
+
+        function renderStatsChart() {
+            var chart = document.getElementById('statsChart');
+            if (!chart) return;
+            while (chart.firstChild) chart.removeChild(chart.firstChild);
+            var title = document.createElement('h3');
+            title.className = 'stats-chart-title';
+            title.textContent = 'time to type each command';
+            chart.appendChild(title);
+
+            var cohort = [
+                { name: 'human', wpm: 80 },
+                { name: 'you', wpm: savedYouWpm > 0 ? savedYouWpm : 0, me: true },
+                { name: 'vim', wpm: 250 }
+            ];
+            var maxSecs = 0;
+            typingPhases.forEach(function(phrase) {
+                cohort.forEach(function(c) {
+                    if (c.wpm <= 0) return;
+                    var secs = phrase.length * (60000 / (c.wpm * 5)) / 1000;
+                    if (secs > maxSecs) maxSecs = secs;
+                });
+            });
+            if (maxSecs === 0) maxSecs = 1;
+
+            typingPhases.forEach(function(phrase) {
+                var row = document.createElement('div'); row.className = 'chart-row';
+                var label = document.createElement('div'); label.className = 'chart-label';
+                label.textContent = phrase;
+                row.appendChild(label);
+                var bars = document.createElement('div'); bars.className = 'chart-bars';
+                cohort.forEach(function(c) {
+                    if (c.wpm <= 0) return;
+                    var secs = phrase.length * (60000 / (c.wpm * 5)) / 1000;
+                    var bar = document.createElement('div');
+                    bar.className = 'chart-bar' + (c.me ? ' is-you' : '');
+                    bar.title = c.name + ' @ ' + Math.round(c.wpm) + ' wpm: ' + secs.toFixed(2) + 's';
+                    var name = document.createElement('div'); name.className = 'bar-name'; name.textContent = c.name;
+                    bar.appendChild(name);
+                    var track = document.createElement('div'); track.className = 'bar-track';
+                    var fill = document.createElement('div'); fill.className = 'bar-fill';
+                    var pct = Math.max(2, (secs / maxSecs) * 100);
+                    fill.style.width = '0%';
+                    requestAnimationFrame(function() { fill.style.width = pct + '%'; });
+                    track.appendChild(fill);
+                    bar.appendChild(track);
+                    var val = document.createElement('div'); val.className = 'bar-value';
+                    val.textContent = (secs < 1 ? secs.toFixed(2) : secs.toFixed(1)) + 's';
+                    bar.appendChild(val);
+                    bars.appendChild(bar);
+                });
+                row.appendChild(bars);
+                chart.appendChild(row);
+            });
+        }
+
+        function revealStatsSection() {
+            var el = document.getElementById('statsSection');
+            if (!el) return;
+            el.style.display = 'block';
+            renderStatsChart();
         }
 
         function showTypingResult(wpm, breakdownLines) {
