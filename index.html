@@ -497,6 +497,19 @@
         .stats-section.collapsed .stat-fine-print { display: none; }
         .stats-section.collapsed .stats-chart { margin-bottom: 0; }
 
+        /* In the 2-column split, re-center the title across the whole
+           container (not just the left column). split-left sits in col-1
+           of a `1fr 2.4rem 1fr` grid, so container-center lives at
+           (100% + half-gap) from split-left's left edge. */
+        @media (min-width: 980px) {
+            .stats-section .stats-chart-title {
+                position: relative;
+                left: calc(100% + 1.2rem);
+                transform: translateX(-50%);
+                width: max-content;
+            }
+        }
+
         .chart-row {
             --tier-above: 0;
             --tier-below: 0;
@@ -2041,7 +2054,8 @@
             recordings: [],
             liveTimer: null,
             cumulativeErrors: 0, // cumulative wrong-char hits this phase
-            lastTyped: ''        // prev input value (detect newly-typed chars)
+            lastTyped: '',       // prev input value (detect newly-typed chars)
+            completedTimeMs: 0   // cumulative ms across completed phases
         };
 
         function currentAccuracyPct() {
@@ -2065,8 +2079,9 @@
                 if (i >= target.length || typed[i] !== target[i]) errors++;
             }
             typingState.errors = errors;
-            var elapsed = typingState.phaseStartTime > 0 ? (Date.now() - typingState.phaseStartTime) : 0;
-            terminalCtrl.setTestStats(typingState.keystrokes, elapsed, currentAccuracyPct());
+            var phaseElapsed = typingState.phaseStartTime > 0 ? (Date.now() - typingState.phaseStartTime) : 0;
+            var totalElapsed = (typingState.completedTimeMs || 0) + phaseElapsed;
+            terminalCtrl.setTestStats(typingState.keystrokes, totalElapsed, currentAccuracyPct());
         }
 
         function onTypingInput(e) {
@@ -2107,6 +2122,7 @@
                     timeMs: timeMs,
                     errors: typingState.cumulativeErrors
                 });
+                typingState.completedTimeMs = (typingState.completedTimeMs || 0) + timeMs;
                 var reactions = ['', '(^.^)', '(O.O)'];
                 var reaction = reactions[typingState.phase] || '';
                 if (typingState.liveTimer) { clearInterval(typingState.liveTimer); typingState.liveTimer = null; }
@@ -2123,7 +2139,7 @@
                         input.value = '';
                         terminalCtrl.setTestPhase(nextPhase, typingPhases.length);
                         terminalCtrl.renderTarget(typingPhases[nextPhase], '');
-                        terminalCtrl.setTestStats(typingState.keystrokes, 0, 100);
+                        terminalCtrl.setTestStats(typingState.keystrokes, typingState.completedTimeMs || 0, 100);
                         focusTerminalInput();
                     });
                 }
@@ -2197,13 +2213,31 @@
             ];
 
             // Global scale: human typing the longest phrase. Shorter commands
-            // visibly collapse toward "nothing".
+            // visibly collapse toward "nothing". Expand if the user's actual
+            // delivery exceeded that baseline (errors, pauses, etc).
             var maxSecs = typingPhases[0].length * (60000 / (80 * 5)) / 1000;
+            var youRecsForScale = (typistData.you && typistData.you.recordings) || [];
+            youRecsForScale.forEach(function(rec) {
+                if (!rec || !rec.length) return;
+                var last = rec[rec.length - 1];
+                if (last && typeof last.t === 'number') {
+                    maxSecs = Math.max(maxSecs, last.t / 1000);
+                }
+            });
             function fmt(s) { return (s < 1 ? s.toFixed(2) : s.toFixed(1)) + 's'; }
 
             var rowsToMeasure = [];
 
-            typingPhases.forEach(function(phrase) {
+            // Actual per-phase times recorded during the user's test (ms).
+            // Recordings last-entry.t is the time when the phrase was completed.
+            var youRecs = (typistData.you && typistData.you.recordings) || [];
+            var youPhaseSecs = youRecs.map(function(rec) {
+                if (!rec || !rec.length) return null;
+                var last = rec[rec.length - 1];
+                return last && typeof last.t === 'number' ? last.t / 1000 : null;
+            });
+
+            typingPhases.forEach(function(phrase, phraseIdx) {
                 var row = document.createElement('div');
                 row.className = 'chart-row';
 
@@ -2216,7 +2250,12 @@
                 track.className = 'chart-track';
 
                 var markers = cohort.filter(function(c) { return c.wpm > 0; }).map(function(c) {
-                    var secs = phrase.length * (60000 / (c.wpm * 5)) / 1000;
+                    var secs;
+                    if (c.me && youPhaseSecs[phraseIdx] != null) {
+                        secs = youPhaseSecs[phraseIdx];
+                    } else {
+                        secs = phrase.length * (60000 / (c.wpm * 5)) / 1000;
+                    }
                     var pct = Math.min(100, Math.max(0.5, (secs / maxSecs) * 100));
                     return { key: c.key, name: c.name, wpm: c.wpm, me: c.me, secs: secs, pct: pct };
                 });
@@ -2324,7 +2363,7 @@
             typingState = {
                 phase: 0, phaseStartTime: 0, errors: 0, keystrokes: 0,
                 phaseResults: [], recordings: [], liveTimer: null,
-                cumulativeErrors: 0, lastTyped: ''
+                cumulativeErrors: 0, lastTyped: '', completedTimeMs: 0
             };
             var input = document.getElementById('typingInput');
             input.value = '';
