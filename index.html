@@ -2656,21 +2656,25 @@
             return row;
         }
 
-        var WORD_KEY_LEN = 4;
         var WORD_KEY_RE = /^[a-z]+(?:-[a-z]+){3}$/;
 
+        // Key template: ADJ-NOUN-VERB-NOUN — reads as a tiny fragment.
+        // Pool sizes are powers of two so index = rand & (size-1) stays unbiased.
+        // Entropy: 9 + 10 + 9 + 10 = 38 bits.
         function generateWordKey() {
-            if (!(window.YOLO_WORDLIST && YOLO_WORDLIST.length === 2048)) {
-                // Fallback to UUID if wordlist failed to load; still unique, just not pretty.
+            var adj = window.YOLO_ADJ, noun = window.YOLO_NOUN, verb = window.YOLO_VERB;
+            if (!(adj && adj.length === 512 && noun && noun.length === 1024 && verb && verb.length === 512)) {
+                // Wordlist missing — fall back to UUID so we still emit *something* unique.
                 return (crypto && crypto.randomUUID) ? crypto.randomUUID() : 'v1-' + Math.random().toString(36).slice(2);
             }
-            var buf = new Uint16Array(WORD_KEY_LEN);
+            var buf = new Uint16Array(4);
             crypto.getRandomValues(buf);
-            var out = [];
-            for (var i = 0; i < WORD_KEY_LEN; i++) {
-                out.push(YOLO_WORDLIST[buf[i] & 0x7FF]);
-            }
-            return out.join('-');
+            return [
+                adj[buf[0] & 0x1FF],
+                noun[buf[1] & 0x3FF],
+                verb[buf[2] & 0x1FF],
+                noun[buf[3] & 0x3FF]
+            ].join('-');
         }
 
         function isWordKey(token) { return WORD_KEY_RE.test(token || ''); }
