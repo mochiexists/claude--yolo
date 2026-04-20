@@ -116,7 +116,7 @@
             .container { max-width: 1060px; }
             /* Hero elements stay narrow and centered even when container widens */
             .cat-wrap, h1, .tagline, .install-section,
-            .footer {
+            .challenge-section, .footer {
                 max-width: 580px;
                 margin-left: auto;
                 margin-right: auto;
@@ -423,6 +423,46 @@
 
         .stats-toggle button:hover:not(.active) {
             color: var(--text);
+        }
+
+        .challenge-section { margin: 0.5rem 0 2rem; }
+
+        .chart-placeholder {
+            padding: 2.2rem 1.4rem;
+            border: 1px dashed rgba(124, 111, 156, 0.18);
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.25s, background 0.25s, transform 0.25s;
+            background: rgba(0, 0, 0, 0.12);
+        }
+        .chart-placeholder:hover {
+            border-color: rgba(184, 168, 216, 0.45);
+            background: rgba(184, 168, 216, 0.04);
+            transform: translateY(-1px);
+        }
+        .chart-placeholder-title {
+            font-family: 'Crimson Pro', Georgia, serif;
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--text);
+            opacity: 0.55;
+            margin-bottom: 0.9rem;
+        }
+        .chart-placeholder-body {
+            font-family: var(--mono);
+            font-size: 0.82rem;
+            color: var(--text-dim);
+            opacity: 0.75;
+            line-height: 1.7;
+        }
+        .chart-placeholder-tab {
+            display: inline-block;
+            padding: 0.1rem 0.55rem;
+            border-radius: 6px;
+            background: rgba(184, 168, 216, 0.18);
+            color: var(--accent-bright);
+            font-weight: 500;
         }
 
         .stats-chart {
@@ -1330,9 +1370,8 @@
             </div>
         </div>
 
-        <div class="split">
-          <div class="split-left">
-            <div class="stats-toggle-wrap fade-up">
+        <div class="challenge-section fade-up">
+            <div class="stats-toggle-wrap">
                 <div class="stats-toggle">
                     <button class="active" id="statsHuman" onclick="switchTypist('human')">human<span class="wpm-suffix"> (80 wpm)</span></button>
                     <button id="statsVim" onclick="switchTypist('vim')">vim user<span class="wpm-suffix"> (250 wpm)</span></button>
@@ -1340,23 +1379,31 @@
                 </div>
             </div>
 
-            <div class="fade-up">
-                <div class="terminal" id="terminal" onclick="focusTerminalInput()">
-                    <span class="terminal-prompt">$ </span><span class="terminal-text" id="termText"></span><span class="terminal-cursor" id="termCursor"></span><span class="terminal-reaction" id="termReaction"></span>
-                    <div class="terminal-meta">
-                        <span id="metaKeys">0 keystrokes</span>
-                        <span id="metaTime">0.0s</span>
-                        <span id="metaAcc" style="display:none;">100%</span>
-                    </div>
-                    <div class="terminal-badge" id="terminalBadge" style="display:none;">
-                        <span class="badge-label">your turn</span>
-                        <span class="badge-phase" id="badgePhase">1 / 3</span>
-                        <button class="badge-restart" type="button" onclick="event.stopPropagation(); resetTypingTest();" title="restart test (⌃C / ⌘⌫)">restart</button>
-                    </div>
+            <div class="terminal" id="terminal" onclick="focusTerminalInput()">
+                <span class="terminal-prompt">$ </span><span class="terminal-text" id="termText"></span><span class="terminal-cursor" id="termCursor"></span><span class="terminal-reaction" id="termReaction"></span>
+                <div class="terminal-meta">
+                    <span id="metaKeys">0 keystrokes</span>
+                    <span id="metaTime">0.0s</span>
+                    <span id="metaAcc" style="display:none;">100%</span>
                 </div>
-                <input type="text" id="typingInput" class="terminal-input-hidden" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-hidden="true" tabindex="-1">
+                <div class="terminal-badge" id="terminalBadge" style="display:none;">
+                    <span class="badge-label">your turn</span>
+                    <span class="badge-phase" id="badgePhase">1 / 3</span>
+                    <button class="badge-restart" type="button" onclick="event.stopPropagation(); resetTypingTest();" title="restart test (⌃C / ⌘⌫)">restart</button>
+                </div>
             </div>
+            <input type="text" id="typingInput" class="terminal-input-hidden" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-hidden="true" tabindex="-1">
+        </div>
 
+        <div class="split">
+          <div class="split-left">
+            <div class="chart-placeholder fade-up" id="chartPlaceholder" onclick="openTypingTest({ scroll: true })">
+                <div class="chart-placeholder-title">where you land</div>
+                <div class="chart-placeholder-body">
+                    click <span class="chart-placeholder-tab">you</span> and take the test<br>
+                    to see where you land
+                </div>
+            </div>
             <div class="stats-section fade-up" id="statsSection" style="display:none;">
                 <div class="stats-chart" id="statsChart"></div>
                 <div class="stats">
@@ -2095,6 +2142,8 @@
             var el = document.getElementById('statsSection');
             if (!el) return;
             el.style.display = 'block';
+            var placeholder = document.getElementById('chartPlaceholder');
+            if (placeholder) placeholder.style.display = 'none';
             renderStatsChart();
         }
 
