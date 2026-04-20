@@ -21,6 +21,9 @@ const SHAMES = [
 
 function doGet(e) {
   try {
+    const params = (e && e.parameter) || {};
+    if (params.restore) return handleRestore(String(params.restore));
+
     const cache = CacheService.getScriptCache();
     const cached = cache.get(CACHE_KEY);
     if (cached) return jsonRaw(cached);
@@ -32,6 +35,32 @@ function doGet(e) {
   } catch (err) {
     return json({ ok: false, error: 'server error' });
   }
+}
+
+function handleRestore(hashHex) {
+  const hex = (hashHex || '').toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(hex)) {
+    return json({ ok: false, error: 'bad key format' });
+  }
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return json({ ok: false, error: 'no match' });
+  // owner_hash is column J (10). Read handle, wpm, timestamp, owner_hash, flag.
+  const values = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
+  let best = null;
+  for (let i = 0; i < values.length; i++) {
+    const r = values[i];
+    if (r[8]) continue; // flagged
+    const owner = String(r[9] || '').toLowerCase();
+    if (!owner || owner !== hex) continue;
+    const wpm = Number(r[2]);
+    if (isNaN(wpm)) continue;
+    if (!best || wpm > best.wpm) {
+      best = { handle: String(r[1]), wpm: wpm, timestamp: r[0] };
+    }
+  }
+  if (!best) return json({ ok: false, error: 'no match' });
+  return json({ ok: true, handle: best.handle, wpm: best.wpm, timestamp: best.timestamp });
 }
 
 function doPost(e) {

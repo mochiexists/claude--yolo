@@ -1094,6 +1094,137 @@
             font-family: 'Crimson Pro', Georgia, serif;
         }
 
+        /* ── Recovery key ── */
+        .recovery-link-wrap { margin-top: 0.7rem; text-align: center; }
+        .recovery-link {
+            background: none;
+            border: none;
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            color: var(--text-dim);
+            opacity: 0.6;
+            cursor: pointer;
+            padding: 0.4rem 0.6rem;
+            transition: opacity 0.2s, color 0.2s;
+        }
+        .recovery-link:hover { opacity: 1; color: var(--accent-bright); }
+
+        .restore-form {
+            margin-top: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            padding: 0.75rem;
+            border: 1px dashed rgba(124, 111, 156, 0.2);
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.18);
+        }
+        .restore-form input {
+            font-family: var(--mono);
+            font-size: 0.84rem;
+            padding: 0.55rem 0.75rem;
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(124, 111, 156, 0.2);
+            border-radius: 6px;
+            color: var(--text);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .restore-form input:focus { border-color: rgba(184, 168, 216, 0.55); }
+        .restore-form button {
+            font-family: var(--mono);
+            font-size: 0.78rem;
+            padding: 0.5rem 0.9rem;
+            background: rgba(184, 168, 216, 0.14);
+            border: 1px solid rgba(184, 168, 216, 0.25);
+            border-radius: 6px;
+            color: var(--accent-bright);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .restore-form button:hover { background: rgba(184, 168, 216, 0.25); }
+        .restore-status {
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            color: var(--text-dim);
+            opacity: 0.8;
+        }
+        .restore-status.error { color: #d98080; }
+        .restore-status.success { color: #9ec49c; }
+
+        .recovery-reveal {
+            margin-top: 1rem;
+            padding: 0.9rem 1rem 0.95rem;
+            border: 1px solid rgba(184, 168, 216, 0.28);
+            border-radius: 10px;
+            background: rgba(184, 168, 216, 0.06);
+        }
+        .recovery-reveal-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.6rem;
+        }
+        .recovery-reveal-title {
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--accent-bright);
+            opacity: 0.85;
+        }
+        .recovery-reveal-close {
+            background: none;
+            border: none;
+            color: var(--text-dim);
+            font-size: 1.2rem;
+            cursor: pointer;
+            opacity: 0.55;
+            line-height: 1;
+            padding: 0 0.2rem;
+        }
+        .recovery-reveal-close:hover { opacity: 1; }
+        .recovery-key-box {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.7rem 0.85rem;
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(124, 111, 156, 0.18);
+            border-radius: 8px;
+            margin-bottom: 0.55rem;
+        }
+        .recovery-key-box code {
+            flex: 1;
+            font-family: var(--mono);
+            font-size: 0.95rem;
+            color: var(--text);
+            letter-spacing: 0.02em;
+            word-break: break-all;
+        }
+        .recovery-key-copy {
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            padding: 0.35rem 0.7rem;
+            background: rgba(184, 168, 216, 0.18);
+            border: 1px solid rgba(184, 168, 216, 0.3);
+            border-radius: 5px;
+            color: var(--accent-bright);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .recovery-key-copy:hover { background: rgba(184, 168, 216, 0.28); }
+        .recovery-reveal-note {
+            font-family: 'Crimson Pro', Georgia, serif;
+            font-style: italic;
+            font-size: 0.82rem;
+            color: var(--text-dim);
+            opacity: 0.75;
+            line-height: 1.5;
+            margin: 0;
+        }
+        .recovery-reveal.is-legacy .recovery-key-box code { font-size: 0.78rem; }
+
         .leaderboard-empty {
             padding: 1.5rem 1rem;
             text-align: center;
@@ -1449,6 +1580,14 @@
                     <span class="cta-main">test your wpm &rarr;</span>
                     <span class="cta-sub">add yourself to the board</span>
                 </button>
+                <div class="recovery-link-wrap">
+                    <button class="recovery-link" type="button" onclick="toggleRestore()">already have a recovery key? restore &rarr;</button>
+                    <div class="restore-form" id="restoreForm" style="display:none;">
+                        <input type="text" id="restoreInput" placeholder="amber-void-purr-ember" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                        <button type="button" id="restoreBtn" onclick="submitRestore()">restore</button>
+                        <div class="restore-status" id="restoreStatus" style="display:none;"></div>
+                    </div>
+                </div>
             </div>
 
             <div class="typing-done" id="typingDone" style="display: none;">
@@ -1464,8 +1603,21 @@
                 </div>
                 <div class="submit-status" id="submitStatus" style="display:none;"></div>
 
+                <div class="recovery-reveal" id="recoveryReveal" style="display:none;">
+                    <div class="recovery-reveal-head">
+                        <span class="recovery-reveal-title">your recovery key</span>
+                        <button type="button" class="recovery-reveal-close" onclick="hideRecoveryReveal()" aria-label="hide">&times;</button>
+                    </div>
+                    <div class="recovery-key-box">
+                        <code id="recoveryKeyText">···</code>
+                        <button type="button" class="recovery-key-copy" onclick="copyRecoveryKey(this)">copy</button>
+                    </div>
+                    <p class="recovery-reveal-note" id="recoveryRevealNote">save this somewhere. it lets you reclaim this handle on another device. we can't get it back for you.</p>
+                </div>
+
                 <div class="typing-controls" style="justify-content: center; margin-top: 0.8rem;">
                     <button class="typing-restart" onclick="resetTypingTest()">try again</button>
+                    <button class="typing-restart" type="button" onclick="showRecoveryReveal()" id="showKeyBtn" style="display:none;">show recovery key</button>
                 </div>
             </div>
         </div>
@@ -1481,6 +1633,7 @@
         </div>
     </div>
 
+    <script src="wordlist.js"></script>
     <script>
         /* ── Cursor glow ── */
         var glow = document.getElementById('glow');
@@ -2503,17 +2656,128 @@
             return row;
         }
 
+        var WORD_KEY_LEN = 4;
+        var WORD_KEY_RE = /^[a-z]+(?:-[a-z]+){3}$/;
+
+        function generateWordKey() {
+            if (!(window.YOLO_WORDLIST && YOLO_WORDLIST.length === 2048)) {
+                // Fallback to UUID if wordlist failed to load; still unique, just not pretty.
+                return (crypto && crypto.randomUUID) ? crypto.randomUUID() : 'v1-' + Math.random().toString(36).slice(2);
+            }
+            var buf = new Uint16Array(WORD_KEY_LEN);
+            crypto.getRandomValues(buf);
+            var out = [];
+            for (var i = 0; i < WORD_KEY_LEN; i++) {
+                out.push(YOLO_WORDLIST[buf[i] & 0x7FF]);
+            }
+            return out.join('-');
+        }
+
+        function isWordKey(token) { return WORD_KEY_RE.test(token || ''); }
+
         function getOrCreateUserToken() {
             try {
                 var t = localStorage.getItem('yolo_user_token');
                 if (!t) {
-                    t = (crypto && crypto.randomUUID)
-                        ? crypto.randomUUID()
-                        : 'v1-' + Math.random().toString(36).slice(2) + Date.now().toString(36) + Math.random().toString(36).slice(2);
+                    t = generateWordKey();
                     localStorage.setItem('yolo_user_token', t);
                 }
                 return t;
             } catch (e) { return ''; }
+        }
+
+        function setUserToken(t) {
+            try { localStorage.setItem('yolo_user_token', t); } catch (e) {}
+        }
+
+        function sha256Hex(str) {
+            if (!(crypto && crypto.subtle)) return Promise.resolve('');
+            var bytes = new TextEncoder().encode(str);
+            return crypto.subtle.digest('SHA-256', bytes).then(function(buf) {
+                var view = new Uint8Array(buf), hex = '';
+                for (var i = 0; i < view.length; i++) hex += view[i].toString(16).padStart(2, '0');
+                return hex;
+            });
+        }
+
+        function toggleRestore() {
+            var form = document.getElementById('restoreForm');
+            if (!form) return;
+            var open = form.style.display !== 'none';
+            form.style.display = open ? 'none' : 'flex';
+            if (!open) setTimeout(function(){ document.getElementById('restoreInput').focus(); }, 50);
+        }
+
+        function showRestoreStatus(msg, kind) {
+            var el = document.getElementById('restoreStatus');
+            if (!el) return;
+            el.textContent = msg;
+            el.className = 'restore-status ' + (kind || '');
+            el.style.display = 'block';
+        }
+
+        function submitRestore() {
+            var input = document.getElementById('restoreInput');
+            var btn = document.getElementById('restoreBtn');
+            var raw = (input.value || '').trim().toLowerCase();
+            if (!raw) { showRestoreStatus('paste your key', 'error'); return; }
+            if (!isWordKey(raw) && raw.length < 12) { showRestoreStatus("that doesn't look right", 'error'); return; }
+            btn.disabled = true; btn.textContent = 'restoring...';
+            sha256Hex(raw).then(function(hash) {
+                return fetch(LEADERBOARD_API + '?restore=' + encodeURIComponent(hash) + '&t=' + Date.now())
+                    .then(function(r) { return r.json(); });
+            }).then(function(data) {
+                btn.disabled = false; btn.textContent = 'restore';
+                if (!data || !data.ok) {
+                    showRestoreStatus((data && data.error) || 'no match found', 'error');
+                    return;
+                }
+                setUserToken(raw);
+                try { localStorage.setItem('yolo_handle', data.handle); } catch (e) {}
+                ownHandle = data.handle;
+                showRestoreStatus('restored as ' + data.handle + ' (' + Math.round(data.wpm) + ' wpm)', 'success');
+                fetchLeaderboard();
+            }).catch(function() {
+                btn.disabled = false; btn.textContent = 'restore';
+                showRestoreStatus('network error, try again', 'error');
+            });
+        }
+
+        function showRecoveryReveal() {
+            var reveal = document.getElementById('recoveryReveal');
+            var keyText = document.getElementById('recoveryKeyText');
+            var note = document.getElementById('recoveryRevealNote');
+            var showBtn = document.getElementById('showKeyBtn');
+            if (!reveal || !keyText) return;
+            var token = getOrCreateUserToken();
+            keyText.textContent = token;
+            if (isWordKey(token)) {
+                reveal.classList.remove('is-legacy');
+                note.textContent = "save this somewhere. it lets you reclaim this handle on another device. we can't get it back for you.";
+            } else {
+                reveal.classList.add('is-legacy');
+                note.textContent = "this is your legacy recovery key (auto-generated). copy it somewhere safe — we can't recover it for you.";
+            }
+            reveal.style.display = 'block';
+            if (showBtn) showBtn.style.display = 'none';
+        }
+
+        function hideRecoveryReveal() {
+            var reveal = document.getElementById('recoveryReveal');
+            var showBtn = document.getElementById('showKeyBtn');
+            if (reveal) reveal.style.display = 'none';
+            if (showBtn) showBtn.style.display = '';
+        }
+
+        function copyRecoveryKey(btn) {
+            var txt = document.getElementById('recoveryKeyText').textContent;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(txt).then(function() {
+                    var orig = btn.textContent;
+                    btn.textContent = 'copied';
+                    setTimeout(function() { btn.textContent = orig; }, 1400);
+                });
+            }
         }
 
         function submitToLeaderboard() {
@@ -2630,6 +2894,12 @@
 
             // Hide form
             document.getElementById('submitForm').style.display = 'none';
+
+            // Reveal the recovery key (optional — user can dismiss and re-open via the
+            // "show recovery key" button in typing-controls).
+            showRecoveryReveal();
+            var showBtn = document.getElementById('showKeyBtn');
+            if (showBtn) showBtn.style.display = '';
         }
 
         function buildShareURL(handle) {
