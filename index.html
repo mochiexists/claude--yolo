@@ -383,6 +383,40 @@
         }
         .terminal.terminal-test #termCursor { display: none; }
 
+        .terminal-replay {
+            position: absolute;
+            top: 0.65rem;
+            right: 0.8rem;
+            width: 28px;
+            height: 28px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(124, 111, 156, 0.2);
+            background: rgba(124, 111, 156, 0.06);
+            color: var(--text-dim);
+            border-radius: 6px;
+            cursor: pointer;
+            opacity: 0.55;
+            transition: opacity 0.2s, color 0.2s, border-color 0.2s, background 0.2s, transform 0.2s;
+        }
+        .terminal-replay:hover {
+            opacity: 1;
+            color: var(--accent-bright);
+            border-color: rgba(184, 168, 216, 0.45);
+            background: rgba(184, 168, 216, 0.1);
+            transform: rotate(-30deg);
+        }
+        .terminal-replay:focus-visible {
+            outline: none;
+            opacity: 1;
+            border-color: rgba(184, 168, 216, 0.55);
+            box-shadow: 0 0 0 2px rgba(184, 168, 216, 0.15);
+        }
+        /* Hide the replay icon while the interactive test is running — the
+           in-badge "restart" button covers that case. */
+        .terminal.terminal-test .terminal-replay { display: none !important; }
+
         .terminal-badge {
             position: absolute;
             top: 0.7rem;
@@ -1521,6 +1555,15 @@
 
             <div class="terminal" id="terminal" onclick="focusTerminalInput()">
                 <span class="terminal-prompt">$ </span><span class="terminal-text" id="termText"></span><span class="terminal-cursor" id="termCursor"></span><span class="terminal-reaction" id="termReaction"></span>
+                <button class="terminal-replay" id="terminalReplay" type="button"
+                        onclick="event.stopPropagation(); openTypingTest({ scroll: true });"
+                        title="retake the test" aria-label="retake the test"
+                        style="display:none;">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M3 12a9 9 0 1 0 3-6.7" />
+                        <polyline points="3 4 3 9 8 9" />
+                    </svg>
+                </button>
                 <div class="terminal-meta">
                     <span id="metaKeys">0 keystrokes</span>
                     <span id="metaTime">0.0s</span>
@@ -2361,6 +2404,8 @@
             // into its right-hand column. The CSS handles the motion.
             var container = document.querySelector('.container');
             if (container) container.classList.add('has-stats');
+            var replay = document.getElementById('terminalReplay');
+            if (replay) replay.style.display = '';
             renderStatsChart();
         }
 
