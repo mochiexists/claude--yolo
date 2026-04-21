@@ -1963,11 +1963,37 @@
             d.perYear = function() { return (saved * d.msPerChar) * 50 * 365 / 1000 / 3600; };
         });
 
+        // Defined early so the localStorage hydration below can clean recordings.
+        var typingPhases = [
+            'claude --dangerously-skip-permissions',
+            'claude --yolo',
+            'ccy'
+        ];
+
         // Hydrate from localStorage if user has completed a test before
         var savedYouWpm = parseFloat(localStorage.getItem('yolo_you_wpm') || '0');
         try {
             var savedRec = localStorage.getItem('yolo_you_recording');
-            if (savedRec) typistData.you.recordings = JSON.parse(savedRec);
+            if (savedRec) {
+                var parsedRec = JSON.parse(savedRec);
+                // Older recordings may include stray keystrokes typed during the
+                // post-completion reaction window. Trim each phase's recording
+                // to the first entry where the typed value equals the target.
+                if (Array.isArray(parsedRec)) {
+                    parsedRec.forEach(function(rec, i) {
+                        if (!Array.isArray(rec)) return;
+                        var target = typingPhases[i];
+                        if (!target) return;
+                        for (var k = 0; k < rec.length; k++) {
+                            if (rec[k] && rec[k].v === target) {
+                                rec.length = k + 1;
+                                break;
+                            }
+                        }
+                    });
+                }
+                typistData.you.recordings = parsedRec;
+            }
         } catch (e) { /* ignore malformed */ }
         if (savedYouWpm > 0) {
             typistData.you.msPerChar = wpmToMsPerChar(savedYouWpm);
@@ -2029,11 +2055,6 @@
         }
 
         /* ── Typing test ── */
-        var typingPhases = [
-            'claude --dangerously-skip-permissions',
-            'claude --yolo',
-            'ccy'
-        ];
         var typingState = {
             phase: 0,
             phaseStartTime: 0,
@@ -2044,7 +2065,8 @@
             liveTimer: null,
             cumulativeErrors: 0, // cumulative wrong-char hits this phase
             lastTyped: '',       // prev input value (detect newly-typed chars)
-            completedTimeMs: 0   // cumulative ms across completed phases
+            completedTimeMs: 0,  // cumulative ms across completed phases
+            phaseLocked: false   // true between phase completion and next-phase start
         };
 
         function currentAccuracyPct() {
@@ -2075,6 +2097,14 @@
 
         function onTypingInput(e) {
             if (!terminalCtrl.isTestMode()) return;
+            // Ignore keystrokes that land during the post-completion reaction
+            // window — otherwise they'd be appended to the already-finished
+            // phase's recording, inflating its duration when replayed.
+            if (typingState.phaseLocked) {
+                var lockedInput = document.getElementById('typingInput');
+                if (lockedInput) lockedInput.value = '';
+                return;
+            }
             var input = document.getElementById('typingInput');
             var target = typingPhases[typingState.phase];
             var typed = input.value;
@@ -2112,6 +2142,9 @@
                     errors: typingState.cumulativeErrors
                 });
                 typingState.completedTimeMs = (typingState.completedTimeMs || 0) + timeMs;
+                // Lock the phase so any keystrokes during the reaction window
+                // don't tack onto the recording and skew replay duration.
+                typingState.phaseLocked = true;
                 var reactions = ['', '(^.^)', '(O.O)'];
                 var reaction = reactions[typingState.phase] || '';
                 if (typingState.liveTimer) { clearInterval(typingState.liveTimer); typingState.liveTimer = null; }
@@ -2125,6 +2158,7 @@
                         typingState.errors = 0;
                         typingState.cumulativeErrors = 0;
                         typingState.lastTyped = '';
+                        typingState.phaseLocked = false;
                         input.value = '';
                         terminalCtrl.setTestPhase(nextPhase, typingPhases.length);
                         terminalCtrl.renderTarget(typingPhases[nextPhase], '');
@@ -2354,7 +2388,7 @@
             typingState = {
                 phase: 0, phaseStartTime: 0, errors: 0, keystrokes: 0,
                 phaseResults: [], recordings: [], liveTimer: null,
-                cumulativeErrors: 0, lastTyped: '', completedTimeMs: 0
+                cumulativeErrors: 0, lastTyped: '', completedTimeMs: 0, phaseLocked: false
             };
             var input = document.getElementById('typingInput');
             input.value = '';
