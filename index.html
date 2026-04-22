@@ -2357,7 +2357,10 @@
             var title = document.createElement('h3');
             title.className = 'stats-chart-title';
             title.title = 'collapse chart';
-            title.appendChild(document.createTextNode('where you land'));
+            var titleText = savedYouWpm > 0
+                ? 'where you land'
+                : 'take the challenge above — see where you\u2019d land';
+            title.appendChild(document.createTextNode(titleText));
             var caret = document.createElement('span');
             caret.className = 'collapse-caret';
             caret.textContent = '▾';
