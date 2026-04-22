@@ -337,11 +337,29 @@ echo ""
 # Results
 # ─────────────────────────────────────────────
 echo "================================"
-echo "  $passed passed, $failed failed"
+echo "  install/uninstall: $passed passed, $failed failed"
 echo "================================"
 echo ""
 
-if [ "$failed" -eq 0 ]; then
+# ─────────────────────────────────────────────
+# Landing-page math tests (replay / chart / leaderboard)
+# ─────────────────────────────────────────────
+page_failed=0
+if command -v node >/dev/null 2>&1; then
+    echo "=== Landing-page unit tests (tests/replay.test.js) ==="
+    if node "$SCRIPT_DIR/tests/replay.test.js"; then
+        :
+    else
+        page_failed=1
+    fi
+else
+    echo "  SKIP: node not installed — landing-page unit tests not run"
+fi
+
+total_failed=$((failed + page_failed))
+
+echo "================================"
+if [ "$total_failed" -eq 0 ]; then
     echo "  /\\_/\\  "
     echo " ( ^.^ ) All tests passed! meow~"
     echo "  > ^ <  "
@@ -358,4 +376,4 @@ else
     echo ""
 fi
 
-[ "$failed" -eq 0 ]
+[ "$total_failed" -eq 0 ]

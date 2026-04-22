@@ -1902,7 +1902,9 @@
                 if (token !== runToken) return;
                 var recs = typistData.you && typistData.you.recordings;
                 if (currentTypist === 'you' && recs && recs[phaseIndex] && recs[phaseIndex].length) {
-                    replayRecording(recs[phaseIndex], callback, token);
+                    var times = typistData.you.phaseTimesMs || [];
+                    var phaseDurationMs = typeof times[phaseIndex] === 'number' ? times[phaseIndex] : 0;
+                    replayRecording(recs[phaseIndex], callback, token, phaseDurationMs);
                     return;
                 }
                 replayElapsedMs = 0;
@@ -1919,7 +1921,7 @@
                 step();
             }
 
-            function replayRecording(recording, callback, token) {
+            function replayRecording(recording, callback, token, phaseDurationMs) {
                 if (token !== runToken) return;
                 // Accumulate across phases within a loop so the final displayed
                 // total matches what the user actually scored — resetting only
@@ -1938,6 +1940,13 @@
                     prevT = rawT;
                     norm.push({ t: rawT - cumOffset, v: String(s.v || '') });
                 }
+                // Displayed meta time is scaled to the phase's authoritative
+                // duration (captured during the live test) so it never exceeds
+                // what the user actually scored, even if their recording is
+                // fat from backspace-churn.
+                var endNormT = norm.length ? norm[norm.length - 1].t : 0;
+                var displayScale = (phaseDurationMs > 0 && endNormT > 0)
+                    ? (phaseDurationMs / endNormT) : 1;
                 var start = Date.now();
                 var i = 0;
                 function step() {
@@ -1948,7 +1957,7 @@
                     if (now >= snap.t) {
                         termText.textContent = snap.v;
                         keystrokeCount = baseKeys + i + 1;
-                        replayElapsedMs = baseMs + snap.t;
+                        replayElapsedMs = baseMs + snap.t * displayScale;
                         updateMeta();
                         i++;
                         step();
@@ -2132,6 +2141,13 @@
                     });
                 }
                 typistData.you.recordings = parsedRec;
+            }
+        } catch (e) { /* ignore malformed */ }
+        try {
+            var savedTimes = localStorage.getItem('yolo_you_phase_times');
+            if (savedTimes) {
+                var parsedTimes = JSON.parse(savedTimes);
+                if (Array.isArray(parsedTimes)) typistData.you.phaseTimesMs = parsedTimes;
             }
         } catch (e) { /* ignore malformed */ }
         if (savedYouWpm > 0) {
@@ -2319,11 +2335,18 @@
             var minutes = totalTimeMs / 1000 / 60;
             var wpm = minutes > 0 ? (totalChars / 5) / minutes : 0;
 
+            // Authoritative per-phase durations captured during the live test.
+            // Used to render the chart AND scale replay meta so it never
+            // exceeds what the user actually scored.
+            var phaseTimesMs = typingState.phaseResults.map(function(r) { return r.timeMs; });
+
             localStorage.setItem('yolo_you_wpm', wpm.toString());
+            localStorage.setItem('yolo_you_phase_times', JSON.stringify(phaseTimesMs));
             try { localStorage.setItem('yolo_you_recording', JSON.stringify(typingState.recordings)); }
             catch (e) { /* storage full */ }
             savedYouWpm = wpm;
             typistData.you.recordings = typingState.recordings;
+            typistData.you.phaseTimesMs = phaseTimesMs;
             typistData.you.msPerChar = wpmToMsPerChar(wpm);
 
             var breakdownLines = typingState.phaseResults.map(function(r, i) {
@@ -2378,25 +2401,23 @@
             // visibly collapse toward "nothing". Expand if the user's actual
             // delivery exceeded that baseline (errors, pauses, etc).
             var maxSecs = typingPhases[0].length * (60000 / (80 * 5)) / 1000;
-            var youRecsForScale = (typistData.you && typistData.you.recordings) || [];
-            youRecsForScale.forEach(function(rec) {
-                if (!rec || !rec.length) return;
-                var last = rec[rec.length - 1];
-                if (last && typeof last.t === 'number') {
-                    maxSecs = Math.max(maxSecs, last.t / 1000);
+            var youTimesForScale = (typistData.you && typistData.you.phaseTimesMs) || [];
+            youTimesForScale.forEach(function(ms) {
+                if (typeof ms === 'number' && ms > 0) {
+                    maxSecs = Math.max(maxSecs, ms / 1000);
                 }
             });
             function fmt(s) { return (s < 1 ? s.toFixed(2) : s.toFixed(1)) + 's'; }
 
             var rowsToMeasure = [];
 
-            // Actual per-phase times recorded during the user's test (ms).
-            // Recordings last-entry.t is the time when the phrase was completed.
-            var youRecs = (typistData.you && typistData.you.recordings) || [];
-            var youPhaseSecs = youRecs.map(function(rec) {
-                if (!rec || !rec.length) return null;
-                var last = rec[rec.length - 1];
-                return last && typeof last.t === 'number' ? last.t / 1000 : null;
+            // Authoritative per-phase times captured during the live test.
+            // Prefer these over the recording's last-entry.t (which can be
+            // inflated by backspace-and-rework churn after a mis-keystroke).
+            var youTimes = (typistData.you && typistData.you.phaseTimesMs) || [];
+            var youPhaseSecs = typingPhases.map(function(_, i) {
+                var ms = youTimes[i];
+                return typeof ms === 'number' && ms > 0 ? ms / 1000 : null;
             });
 
             typingPhases.forEach(function(phrase, phraseIdx) {
