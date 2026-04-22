@@ -330,6 +330,24 @@
             color: var(--accent-bright);
         }
 
+        /* Clickable brand wordmark — clicking toggles claude↔codex,
+           dragging down into the page morphs the site into pi mode. */
+        .brand-h1 {
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+            display: inline-block;
+            transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+                        color 0.18s ease,
+                        opacity 0.18s ease;
+            touch-action: none; /* so drag gesture isn't swallowed by scroll on mobile */
+        }
+        .brand-h1:hover { color: var(--accent-bright); }
+        .brand-h1.dragging {
+            color: var(--accent-bright);
+            opacity: 0.85;
+        }
+
         .tagline {
             font-size: 1.15rem;
             font-weight: 300;
@@ -1608,7 +1626,7 @@
             <span class="cat-speech" id="catSpeech">meow~</span>
         </div>
 
-        <h1 class="fade-up">ccy</h1>
+        <h1 class="fade-up brand-h1" id="brandH1" title="click to switch mode — drag down for pi">ccy</h1>
         <p class="tagline fade-up">Life's too short for --dangerously-skip-permissions</p>
 
         <div class="install-section fade-up">
@@ -1767,6 +1785,140 @@
 
     <script src="wordlist.js"></script>
     <script>
+        /* ───────────────────────────────────────────────────────────────
+           Modes — claude / codex / pi. Each mode swaps the *content* of
+           the site while the shell (typing test, leaderboard, chart) stays
+           identical. Controlled by the `?mode=` query param; toggled by
+           clicking the brand wordmark (h1). The drag-down-on-h1 gesture
+           flips into `pi` mode (Mario-64 style), and clicking from there
+           returns to claude. Each mode gets its own namespaced localStorage
+           and its own Apps Script leaderboard rows (via `mode` column).
+        ─────────────────────────────────────────────────────────────── */
+        var MODES = {
+            claude: {
+                id: 'claude',
+                brand: 'ccy',
+                cli: 'claude',
+                phrases: [
+                    'claude --dangerously-skip-permissions',
+                    'claude --yolo',
+                    'ccy'
+                ],
+                phraseLabels: ['long', '--yolo', 'ccy'],
+                reactions: ['', '(^.^)', '(O.O)'],
+                tagline: "Life's too short for --dangerously-skip-permissions",
+                metaDescription: "Life's too short for --dangerously-skip-permissions.",
+                fineprint: 'ccy is faster for everyone, no matter how fast you type',
+                ogImage: 'og-image.png',
+                leaderboard: true,
+                shareLong: 'claude --dangerously-skip-permissions'
+            },
+            codex: {
+                id: 'codex',
+                brand: 'cxy',
+                cli: 'codex',
+                phrases: [
+                    'codex --dangerously-bypass-approvals-and-sandbox',
+                    'codex --yolo',
+                    'cxy'
+                ],
+                phraseLabels: ['long', '--yolo', 'cxy'],
+                reactions: ['', '(^.^)', '(O.O)'],
+                tagline: "Life's too short for --dangerously-bypass-approvals-and-sandbox",
+                metaDescription: "Life's too short for --dangerously-bypass-approvals-and-sandbox.",
+                fineprint: 'cxy is faster for everyone, no matter how fast you type',
+                ogImage: 'og-image-cxy.png',
+                leaderboard: true,
+                shareLong: 'codex --dangerously-bypass-approvals-and-sandbox'
+            },
+            pi: {
+                id: 'pi',
+                brand: 'pi',
+                cli: 'pi',
+                phrases: ['pi'],
+                phraseLabels: ['pi'],
+                reactions: ['(O.O)'],
+                tagline: 'yolo by default',
+                metaDescription: 'pi — yolo by default.',
+                fineprint: 'pi is just pi. two letters. how fast?',
+                ogImage: 'og-image.png',
+                leaderboard: true,
+                shareLong: 'pi'
+            }
+        };
+
+        function resolveMode() {
+            try {
+                var params = new URLSearchParams(window.location.search);
+                var m = (params.get('mode') || '').toLowerCase();
+                if (MODES[m]) return m;
+            } catch (e) { /* URLSearchParams not supported */ }
+            return 'claude';
+        }
+
+        var ACTIVE_MODE = resolveMode();
+        var MODE = MODES[ACTIVE_MODE];
+
+        // Namespaced storage. Legacy `yolo_*` keys (pre-modes) get lazily
+        // migrated to `yolo_claude_*` on first load so existing claude users
+        // don't lose their WPM / recording / handle.
+        function lsKey(k) { return 'yolo_' + ACTIVE_MODE + '_' + k; }
+        (function migrateLegacyStorage() {
+            if (ACTIVE_MODE !== 'claude') return;
+            var keys = ['you_wpm', 'you_recording', 'you_phase_times',
+                        'handle', 'user_token', 'chart_collapsed'];
+            keys.forEach(function (k) {
+                var legacy = 'yolo_' + k;
+                var modern = 'yolo_claude_' + k;
+                try {
+                    if (localStorage.getItem(modern) === null &&
+                        localStorage.getItem(legacy) !== null) {
+                        localStorage.setItem(modern, localStorage.getItem(legacy));
+                    }
+                } catch (e) { /* storage disabled */ }
+            });
+        })();
+
+        // Swaps the active mode. Mode change = hard reload with new query
+        // param — simplest way to reset transient UI state without bug risk.
+        function switchMode(toId) {
+            if (!MODES[toId] || toId === ACTIVE_MODE) return;
+            var url;
+            try { url = new URL(window.location.href); }
+            catch (e) { window.location.search = toId === 'claude' ? '' : '?mode=' + toId; return; }
+            if (toId === 'claude') url.searchParams.delete('mode');
+            else url.searchParams.set('mode', toId);
+            window.location.href = url.toString();
+        }
+
+        // Apply mode content to DOM elements on load.
+        function applyModeToDocument() {
+            document.title = MODE.brand;
+            var setMeta = function (sel, attr, val) {
+                var el = document.querySelector(sel);
+                if (el) el.setAttribute(attr, val);
+            };
+            setMeta('meta[name="description"]',      'content', MODE.metaDescription);
+            setMeta('meta[property="og:title"]',     'content', MODE.brand);
+            setMeta('meta[property="og:description"]', 'content', MODE.metaDescription);
+            setMeta('meta[property="og:image"]',     'content', 'https://mochiexists.com/yolo/' + MODE.ogImage);
+            setMeta('meta[name="twitter:title"]',    'content', MODE.brand);
+            setMeta('meta[name="twitter:description"]', 'content', MODE.metaDescription);
+            setMeta('meta[name="twitter:image"]',    'content', 'https://mochiexists.com/yolo/' + MODE.ogImage);
+
+            var h1 = document.getElementById('brandH1');
+            if (h1) h1.textContent = MODE.brand;
+            var tagline = document.querySelector('.tagline');
+            if (tagline) tagline.textContent = MODE.tagline;
+            var fineprint = document.querySelector('.stat-fine-print:not(.stat-footnote)');
+            if (fineprint) fineprint.textContent = MODE.fineprint;
+
+            if (!MODE.leaderboard) {
+                var card = document.querySelector('.benchmark-card');
+                if (card) card.style.display = 'none';
+            }
+        }
+
         /* ── Cursor glow ── */
         var glow = document.getElementById('glow');
         document.addEventListener('mousemove', function(e) {
@@ -1844,6 +1996,71 @@
             else eyesEl.textContent = eyeStates.center;
         });
 
+        /* ── Mode switching: click h1 to toggle claude↔codex; drag h1 down
+              and release to morph into pi mode. Both swaps hard-reload with
+              the new ?mode= query so transient state is cleanly reset. ── */
+        (function wireModeToggle() {
+            var brandH1 = document.getElementById('brandH1');
+            if (!brandH1) return;
+            applyModeToDocument();
+
+            var DRAG_THRESHOLD_PX = 60;
+            var dragState = null;
+
+            function onDown(e) {
+                var pt = e.touches ? e.touches[0] : e;
+                dragState = { startY: pt.clientY, dy: 0, moved: false, pointerId: e.pointerId };
+                brandH1.classList.add('dragging');
+                if (e.pointerId != null && brandH1.setPointerCapture) {
+                    try { brandH1.setPointerCapture(e.pointerId); } catch (err) {}
+                }
+                e.preventDefault();
+            }
+            function onMove(e) {
+                if (!dragState) return;
+                var pt = e.touches ? e.touches[0] : e;
+                dragState.dy = pt.clientY - dragState.startY;
+                if (Math.abs(dragState.dy) > 4) dragState.moved = true;
+                // Visual feedback: pull the wordmark down with the gesture,
+                // capped at 28px so it stays tasteful.
+                var pull = Math.max(0, Math.min(28, dragState.dy * 0.5));
+                brandH1.style.transform = 'translateY(' + pull + 'px)';
+            }
+            function onUp(e) {
+                if (!dragState) return;
+                var dy = dragState.dy;
+                var moved = dragState.moved;
+                dragState = null;
+                brandH1.classList.remove('dragging');
+                brandH1.style.transform = '';
+
+                if (moved && dy > DRAG_THRESHOLD_PX) {
+                    switchMode('pi');
+                    return;
+                }
+                if (!moved) {
+                    // Treat as click — toggle between claude and codex.
+                    // In pi mode, clicking always returns to claude.
+                    if (ACTIVE_MODE === 'pi') switchMode('claude');
+                    else switchMode(ACTIVE_MODE === 'claude' ? 'codex' : 'claude');
+                }
+            }
+
+            if (window.PointerEvent) {
+                brandH1.addEventListener('pointerdown', onDown);
+                brandH1.addEventListener('pointermove', onMove);
+                brandH1.addEventListener('pointerup', onUp);
+                brandH1.addEventListener('pointercancel', onUp);
+            } else {
+                brandH1.addEventListener('mousedown', onDown);
+                window.addEventListener('mousemove', onMove);
+                window.addEventListener('mouseup', onUp);
+                brandH1.addEventListener('touchstart', onDown, { passive: false });
+                brandH1.addEventListener('touchmove', onMove, { passive: false });
+                brandH1.addEventListener('touchend', onUp);
+            }
+        })();
+
         /* ── Animated terminal sequence ── */
         var terminalCtrl = (function() {
             var termText = document.getElementById('termText');
@@ -1861,11 +2078,20 @@
             var mode = 'demo'; // 'demo' | 'test' | 'result'
             var runToken = 0; // bumps on every mode change; stale chains bail
 
-            var sequence = [
-                { text: 'claude --dangerously-skip-permissions', phase: 'phase-red', reaction: '' },
-                { text: 'claude --yolo', phase: 'phase-green', reaction: '(^.^)' },
-                { text: 'ccy', phase: 'phase-glow', reaction: '(O.O)' },
-            ];
+            // Demo sequence comes from active mode. For pi (single phrase)
+            // we just loop on that phrase, for claude/codex we go long→mid→short.
+            var phasePalettes = ['phase-red', 'phase-green', 'phase-glow'];
+            var sequence = MODE.phrases.map(function (text, i) {
+                return {
+                    text: text,
+                    // If there are fewer phrases than palettes, pick the glow
+                    // (climax) color so a single-phrase mode still shines.
+                    phase: MODE.phrases.length === 1
+                        ? 'phase-glow'
+                        : (phasePalettes[i] || 'phase-glow'),
+                    reaction: MODE.reactions[i] || ''
+                };
+            });
 
             var replayElapsedMs = 0;
 
@@ -2093,10 +2319,12 @@
         })();
 
         /* ── Stats typist toggle ── */
-        // 38 chars for `claude --dangerously-skip-permissions`, 3 for `ccy`
         // WPM → ms/char: 1 WPM = 5 chars/min, so ms/char = 60000 / (WPM * 5)
         // 50 invocations/day, 365 days/year
-        var saved = 38 - 3; // 35 keystrokes saved
+        // `saved` is the keystroke delta between long form and short alias —
+        // what you skip typing by using the short alias every invocation.
+        var saved = MODE.phrases[0].length - MODE.phrases[MODE.phrases.length - 1].length;
+        if (saved < 1) saved = 1; // pi has only one phrase; avoid zero/negative
 
         function wpmToMsPerChar(wpm) { return 60000 / (wpm * 5); }
 
@@ -2111,17 +2339,13 @@
             d.perYear = function() { return (saved * d.msPerChar) * 50 * 365 / 1000 / 3600; };
         });
 
-        // Defined early so the localStorage hydration below can clean recordings.
-        var typingPhases = [
-            'claude --dangerously-skip-permissions',
-            'claude --yolo',
-            'ccy'
-        ];
+        // Phrases come from the active mode. Claude has 3, codex has 3, pi has 1.
+        var typingPhases = MODE.phrases.slice();
 
         // Hydrate from localStorage if user has completed a test before
-        var savedYouWpm = parseFloat(localStorage.getItem('yolo_you_wpm') || '0');
+        var savedYouWpm = parseFloat(localStorage.getItem(lsKey('you_wpm')) || '0');
         try {
-            var savedRec = localStorage.getItem('yolo_you_recording');
+            var savedRec = localStorage.getItem(lsKey('you_recording'));
             if (savedRec) {
                 var parsedRec = JSON.parse(savedRec);
                 // Older recordings may include stray keystrokes typed during the
@@ -2144,7 +2368,7 @@
             }
         } catch (e) { /* ignore malformed */ }
         try {
-            var savedTimes = localStorage.getItem('yolo_you_phase_times');
+            var savedTimes = localStorage.getItem(lsKey('you_phase_times'));
             if (savedTimes) {
                 var parsedTimes = JSON.parse(savedTimes);
                 if (Array.isArray(parsedTimes)) typistData.you.phaseTimesMs = parsedTimes;
@@ -2158,7 +2382,7 @@
             if (ctaMain) ctaMain.textContent = 'your result: ' + Math.round(savedYouWpm) + ' wpm';
             if (ctaSub) ctaSub.textContent = 'tap to try again';
             // Auto-expand for returning users unless they explicitly collapsed it.
-            if (localStorage.getItem('yolo_chart_collapsed') !== '1') {
+            if (localStorage.getItem(lsKey('chart_collapsed')) !== '1') {
                 setTimeout(function() { revealStatsSection(); }, 300);
             }
         }
@@ -2340,9 +2564,9 @@
             // exceeds what the user actually scored.
             var phaseTimesMs = typingState.phaseResults.map(function(r) { return r.timeMs; });
 
-            localStorage.setItem('yolo_you_wpm', wpm.toString());
-            localStorage.setItem('yolo_you_phase_times', JSON.stringify(phaseTimesMs));
-            try { localStorage.setItem('yolo_you_recording', JSON.stringify(typingState.recordings)); }
+            localStorage.setItem(lsKey('you_wpm'), wpm.toString());
+            localStorage.setItem(lsKey('you_phase_times'), JSON.stringify(phaseTimesMs));
+            try { localStorage.setItem(lsKey('you_recording'), JSON.stringify(typingState.recordings)); }
             catch (e) { /* storage full */ }
             savedYouWpm = wpm;
             typistData.you.recordings = typingState.recordings;
@@ -2353,7 +2577,7 @@
                 var mins = r.timeMs / 1000 / 60;
                 var phaseWpm = mins > 0 ? Math.round((r.chars / 5) / mins) : 0;
                 var acc = r.errors > 0 ? Math.round(r.chars / (r.chars + r.errors) * 100) : 100;
-                var label = i === 0 ? 'long' : i === 1 ? '--yolo' : 'ccy';
+                var label = MODE.phraseLabels[i] || ('phase ' + (i + 1));
                 return label + ': ' + phaseWpm + ' wpm · ' + (r.timeMs / 1000).toFixed(1) + 's · ' + acc + '%';
             });
 
@@ -2525,13 +2749,13 @@
             var replay = document.getElementById('terminalReplay');
             if (replay && savedYouWpm > 0) replay.style.display = '';
             renderStatsChart();
-            localStorage.setItem('yolo_chart_collapsed', '0');
+            localStorage.setItem(lsKey('chart_collapsed'), '0');
         }
 
         function collapseStatsSection() {
             var container = document.querySelector('.container');
             if (container) container.classList.remove('has-stats');
-            localStorage.setItem('yolo_chart_collapsed', '1');
+            localStorage.setItem(lsKey('chart_collapsed'), '1');
         }
 
         // Called when the user clicks the "become 10× faster — see the proof" CTA.
@@ -2684,7 +2908,7 @@
         var MAX_SUBMIT_WPM = 400;
 
         // Restore last handle
-        var savedHandle = localStorage.getItem('yolo_handle') || '';
+        var savedHandle = localStorage.getItem(lsKey('handle')) || '';
         if (savedHandle) document.getElementById('submitHandle').value = savedHandle;
 
         // Highlight handle from URL if present
@@ -2707,7 +2931,7 @@
             loading.textContent = 'loading...';
             el.appendChild(loading);
 
-            fetch(LEADERBOARD_API + '?t=' + Date.now())
+            fetch(LEADERBOARD_API + '?mode=' + ACTIVE_MODE + '&t=' + Date.now())
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
                     renderLeaderboard(data.entries || []);
@@ -2935,17 +3159,17 @@
 
         function getOrCreateUserToken() {
             try {
-                var t = localStorage.getItem('yolo_user_token');
+                var t = localStorage.getItem(lsKey('user_token'));
                 if (!t) {
                     t = generateWordKey();
-                    localStorage.setItem('yolo_user_token', t);
+                    localStorage.setItem(lsKey('user_token'), t);
                 }
                 return t;
             } catch (e) { return ''; }
         }
 
         function setUserToken(t) {
-            try { localStorage.setItem('yolo_user_token', t); } catch (e) {}
+            try { localStorage.setItem(lsKey('user_token'), t); } catch (e) {}
         }
 
         function sha256Hex(str) {
@@ -2991,7 +3215,7 @@
                     return;
                 }
                 setUserToken(raw);
-                try { localStorage.setItem('yolo_handle', data.handle); } catch (e) {}
+                try { localStorage.setItem(lsKey('handle'), data.handle); } catch (e) {}
                 ownHandle = data.handle;
                 showRestoreStatus('restored as ' + data.handle + ' (' + Math.round(data.wpm) + ' wpm)', 'success');
                 fetchLeaderboard();
@@ -3077,7 +3301,8 @@
                 errors: totalErrors,
                 breakdown: breakdown,
                 recording: typistData.you.recordings || [],
-                userToken: getOrCreateUserToken()
+                userToken: getOrCreateUserToken(),
+                mode: ACTIVE_MODE
             };
 
             fetch(LEADERBOARD_API, {
@@ -3090,7 +3315,7 @@
                 btn.disabled = false;
                 btn.textContent = 'submit to leaderboard';
                 if (data.ok) {
-                    localStorage.setItem('yolo_handle', handle);
+                    localStorage.setItem(lsKey('handle'), handle);
                     ownHandle = handle;
                     tentativeWpm = 0;
                     showSubmitSuccess(data.rank, data.total, handle);
@@ -3161,13 +3386,15 @@
         }
 
         function buildShareURL(handle) {
-            return 'https://mochiexists.com/yolo/?h=' + encodeURIComponent(handle);
+            var base = 'https://mochiexists.com/yolo/?h=' + encodeURIComponent(handle);
+            if (ACTIVE_MODE !== 'claude') base += '&mode=' + ACTIVE_MODE;
+            return base;
         }
 
         function buildShareText(handle, wpm, rank) {
             var msPerChar = 60000 / (wpm * 5);
-            var savedPerInvoke = ((35 * msPerChar) / 1000).toFixed(1);
-            return 'typed `claude --dangerously-skip-permissions` at ' + Math.round(wpm) + ' wpm. ' +
+            var savedPerInvoke = ((saved * msPerChar) / 1000).toFixed(1);
+            return 'typed `' + MODE.shareLong + '` at ' + Math.round(wpm) + ' wpm. ' +
                    'saving ' + savedPerInvoke + 's every time I yolo instead.\n\n' +
                    'ranked #' + rank + '. beat me →';
         }

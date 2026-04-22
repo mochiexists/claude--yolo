@@ -1,15 +1,21 @@
 const MAX_WPM = 400;
 const MIN_KEYSTROKES = 50;
+// pi mode is just two characters — the 50-keystroke anti-paste floor would
+// reject every submission. Mode-specific overrides live here.
+const MIN_KEYSTROKES_BY_MODE = { pi: 2 };
 const MAX_HANDLE_LEN = 24;
 const RATE_LIMIT_SEC = 20;
 const CACHE_TTL_SEC = 30;
-const CACHE_KEY = 'lb_top100_v1';
+const CACHE_KEY_PREFIX = 'lb_top100_v2_';
 const REC_SUMMARY_ONLY = true;
+const VALID_MODES = ['claude', 'codex', 'pi'];
+const DEFAULT_MODE = 'claude';
 const SHEET_HEADERS = [
   'timestamp', 'handle', 'wpm', 'saved_s',
   'keystrokes', 'errors', 'breakdown',
-  'recording', 'flag', 'owner_hash'
+  'recording', 'flag', 'owner_hash', 'mode'
 ];
+const MODE_COL = 11; // 1-indexed sheet column for `mode`
 const SHAMES = [
   "don't be a dick",
   "no.",
@@ -24,13 +30,15 @@ function doGet(e) {
     const params = (e && e.parameter) || {};
     if (params.restore) return handleRestore(String(params.restore));
 
+    const mode = normalizeMode(params.mode);
+    const cacheKey = CACHE_KEY_PREFIX + mode;
     const cache = CacheService.getScriptCache();
-    const cached = cache.get(CACHE_KEY);
+    const cached = cache.get(cacheKey);
     if (cached) return jsonRaw(cached);
 
-    const entries = readTopEntries(100);
-    const payload = JSON.stringify({ ok: true, entries });
-    cache.put(CACHE_KEY, payload, CACHE_TTL_SEC);
+    const entries = readTopEntries(100, mode);
+    const payload = JSON.stringify({ ok: true, entries, mode: mode });
+    cache.put(cacheKey, payload, CACHE_TTL_SEC);
     return jsonRaw(payload);
   } catch (err) {
     return json({ ok: false, error: 'server error' });
@@ -73,6 +81,7 @@ function doPost(e) {
     const breakdown = body.breakdown || [];
     const recording = body.recording || [];
     const userToken = (body.userToken || '').toString();
+    const mode = normalizeMode(body.mode);
 
     const handle = handleRaw.replace(/[<>\n\r\t]/g, '').slice(0, MAX_HANDLE_LEN);
     if (!handle) return json({ ok: false, error: 'sanitize your handle', code: 'bad_handle' });
@@ -85,7 +94,8 @@ function doPost(e) {
     if (wpm > MAX_WPM) {
       return json({ ok: false, error: shame(), code: 'too_fast' });
     }
-    if (!keystrokes || keystrokes < MIN_KEYSTROKES) {
+    const minKeys = MIN_KEYSTROKES_BY_MODE[mode] || MIN_KEYSTROKES;
+    if (!keystrokes || keystrokes < minKeys) {
       return json({ ok: false, error: 'we see you pasting, type it yourself', code: 'no_keystrokes' });
     }
 
@@ -133,18 +143,22 @@ function doPost(e) {
       JSON.stringify(breakdown),
       recCell,
       flag,
-      ownerHash
+      ownerHash,
+      mode
     ]);
 
     cache.put(rateKey, '1', RATE_LIMIT_SEC);
-    cache.remove(CACHE_KEY);
+    cache.remove(CACHE_KEY_PREFIX + mode);
 
     const newLast = sheet.getLastRow();
     const wpmCol = sheet.getRange(2, 3, newLast - 1, 1).getValues();
     const flagCol = sheet.getRange(2, 9, newLast - 1, 1).getValues();
+    const modeCol = sheet.getRange(2, MODE_COL, newLast - 1, 1).getValues();
     const valid = [];
     for (let i = 0; i < wpmCol.length; i++) {
       const w = wpmCol[i][0];
+      const rowMode = normalizeMode(modeCol[i][0]);
+      if (rowMode !== mode) continue;
       if (!flagCol[i][0] && typeof w === 'number' && !isNaN(w)) valid.push(w);
     }
     valid.sort((a, b) => b - a);
@@ -177,15 +191,18 @@ function sha256Hex(s) {
   return out;
 }
 
-function readTopEntries(limit) {
+function readTopEntries(limit, mode) {
+  const filterMode = normalizeMode(mode);
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
-  const values = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
+  const values = sheet.getRange(2, 1, lastRow - 1, MODE_COL).getValues();
   const rows = [];
   for (let i = 0; i < values.length; i++) {
     const r = values[i];
     if (!r[1] || r[8]) continue;
+    const rowMode = normalizeMode(r[MODE_COL - 1]);
+    if (rowMode !== filterMode) continue;
     const wpm = Number(r[2]);
     if (isNaN(wpm)) continue;
     rows.push({
@@ -230,5 +247,33 @@ function shame() {
 }
 
 function clearCache() {
-  CacheService.getScriptCache().remove(CACHE_KEY);
+  const cache = CacheService.getScriptCache();
+  VALID_MODES.forEach(function (m) { cache.remove(CACHE_KEY_PREFIX + m); });
+}
+
+function normalizeMode(raw) {
+  const m = String(raw || '').toLowerCase().trim();
+  return VALID_MODES.indexOf(m) >= 0 ? m : DEFAULT_MODE;
+}
+
+// One-time manual migration: fill `mode` for legacy rows with DEFAULT_MODE.
+// Run from the Apps Script editor after deploying. Idempotent.
+function backfillClaudeMode() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  ensureHeaders(sheet);
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { ok: true, filled: 0 };
+  const range = sheet.getRange(2, MODE_COL, lastRow - 1, 1);
+  const values = range.getValues();
+  let filled = 0;
+  for (let i = 0; i < values.length; i++) {
+    const v = String(values[i][0] || '').toLowerCase().trim();
+    if (VALID_MODES.indexOf(v) < 0) {
+      values[i][0] = DEFAULT_MODE;
+      filled++;
+    }
+  }
+  if (filled > 0) range.setValues(values);
+  clearCache();
+  return { ok: true, filled: filled };
 }
