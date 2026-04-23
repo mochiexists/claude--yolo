@@ -26,10 +26,19 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
+        /* Palette tokens.
+           The core (--bg / --text / --accent / --accent-glow) is kept in
+           sync by hand with the sibling `mochiexists.com` site at
+           mochiexists/mochiexists.github.io → assets/mochi.css. This repo
+           deploys independently and doesn't fetch that file at runtime —
+           when one palette moves, both repos move together manually. The
+           mode/typing-specific tokens (green/red/surface/border/mono) stay
+           local to yolo. */
         :root {
             --bg: #0a0a0f;
             --text: #d4d4dc;
             --text-dim: #7a7a8a;
+            --text-muted: #c8c8d0;
             --accent: #7c6f9c;
             --accent-glow: rgba(124, 111, 156, 0.15);
             --accent-bright: #b8a8d8;
