@@ -1,11 +1,14 @@
 #!/bin/sh
 set -e
 
-YOLO_VERSION="0.4.0"
+YOLO_VERSION="1.0.0"
 
 # claude-yolo installer
-# Adds a shell function that lets you use `claude --yolo`
-# instead of `claude --dangerously-skip-permissions`.
+# Adds shell plumbing so you can type less to live more:
+#   claude --yolo  →  claude --dangerously-skip-permissions
+#   codex  --yolo  →  codex  --dangerously-bypass-approvals-and-sandbox
+#   ccy            →  claude --yolo  (the shortest path home)
+#   cxy            →  codex  --yolo  (its sibling)
 #
 # Survives other tools (e.g. terminal multiplexers) that redefine `claude()`
 # by using a precmd/PROMPT_COMMAND hook that re-wraps after clobbering.

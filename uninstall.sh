@@ -1,10 +1,11 @@
 #!/bin/sh
 set -e
 
-YOLO_VERSION="0.4.0"
+YOLO_VERSION="1.0.0"
 
 # claude-yolo uninstaller
-# Removes the claude-yolo block, checking it matches what we installed.
+# Removes the claude-yolo block (ccy/cxy aliases + --yolo rewrite for
+# both `claude` and `codex`), checking it matches what we installed.
 # If it differs (hand-edited or older version), show a diff and ask.
 
 ZSH_BLOCK=$(cat <<'EOF'
