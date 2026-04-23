@@ -331,21 +331,95 @@
         }
 
         /* Clickable brand wordmark — clicking toggles claude↔codex,
-           dragging down into the page morphs the site into pi mode. */
+           dragging down into the page morphs the site into pi mode.
+           States: idle → .pressing (mouse/touch down) → primed (past
+           threshold, visible "ready to launch" cue) → .committing
+           (release past threshold, fade-and-drop then navigate). */
+        .brand-wrap {
+            position: relative;
+            display: inline-block;
+            /* Hint sits below — reserve vertical space so layout doesn't
+               shift when the hint appears. The hint lives absolutely below. */
+            margin-bottom: 0.35rem;
+        }
         .brand-h1 {
             cursor: pointer;
             user-select: none;
             -webkit-user-select: none;
             display: inline-block;
-            transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
-                        color 0.18s ease,
-                        opacity 0.18s ease;
+            /* Springy return on release below threshold, tactile feel. */
+            transition: transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1),
+                        color 0.2s ease,
+                        text-shadow 0.25s ease,
+                        filter 0.25s ease,
+                        opacity 0.25s ease;
             touch-action: none; /* so drag gesture isn't swallowed by scroll on mobile */
+            margin-bottom: 0 !important; /* hint absorbs the gap */
         }
         .brand-h1:hover { color: var(--accent-bright); }
-        .brand-h1.dragging {
+        .brand-h1.pressing {
             color: var(--accent-bright);
-            opacity: 0.85;
+            text-shadow: 0 0 24px rgba(184, 168, 216, 0.45);
+            filter: brightness(1.08);
+            /* While actively dragging, cut the easing so motion tracks
+               the pointer instead of lagging with the springy timing. */
+            transition: color 0.15s ease,
+                        text-shadow 0.2s ease,
+                        filter 0.2s ease;
+        }
+        .brand-h1.primed {
+            text-shadow: 0 0 42px rgba(184, 168, 216, 0.95),
+                         0 0 14px rgba(184, 168, 216, 0.6);
+            filter: brightness(1.3);
+        }
+        .brand-h1.committing {
+            transition: transform 0.32s cubic-bezier(0.5, 0, 0.95, 0.35),
+                        opacity 0.3s ease,
+                        filter 0.3s ease;
+            transform: translateY(72px) scale(0.82);
+            opacity: 0;
+            filter: brightness(1.5) blur(1px);
+        }
+
+        /* The "pull down for π" hint, absolutely anchored below the h1
+           so it never affects layout. Appears on press, intensifies when
+           the drag passes the commit threshold. */
+        .brand-hint {
+            position: absolute;
+            left: 50%;
+            top: 100%;
+            transform: translate(-50%, -8px);
+            font-family: 'Crimson Pro', Georgia, serif;
+            font-style: italic;
+            font-size: 0.82rem;
+            letter-spacing: 0.02em;
+            color: var(--accent-bright);
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.35s ease,
+                        transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+                        text-shadow 0.25s ease,
+                        letter-spacing 0.3s ease;
+        }
+        .brand-hint.visible {
+            opacity: 0.7;
+            transform: translate(-50%, 4px);
+        }
+        .brand-hint.primed {
+            opacity: 1;
+            letter-spacing: 0.06em;
+            text-shadow: 0 0 18px rgba(184, 168, 216, 0.7);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .brand-h1, .brand-hint {
+                transition: color 0.2s ease !important;
+            }
+            .brand-h1.committing {
+                transform: none !important;
+                opacity: 0 !important;
+            }
         }
 
         .tagline {
@@ -623,6 +697,24 @@
             padding: 0 0.5rem;
         }
         .chart-row:last-of-type { margin-bottom: 0.8rem; }
+
+        /* Reference rows in pi mode: dimmer, dashed track edge, so the
+           eye knows these are "context / what the long commands cost"
+           rather than phrases the user actually typed. */
+        .chart-row.is-reference { opacity: 0.58; }
+        .chart-row.is-reference .chart-label::before {
+            content: 'vs. ';
+            font-style: italic;
+            opacity: 0.6;
+        }
+        .chart-row.is-reference .chart-track {
+            outline: 1px dashed rgba(124, 111, 156, 0.22);
+            outline-offset: 2px;
+            background: linear-gradient(90deg,
+                rgba(125, 184, 138, 0.12) 0%,
+                rgba(184, 168, 216, 0.08) 60%,
+                rgba(184, 125, 125, 0.12) 100%);
+        }
 
         .chart-label {
             font-family: var(--mono);
@@ -1626,7 +1718,10 @@
             <span class="cat-speech" id="catSpeech">meow~</span>
         </div>
 
-        <h1 class="fade-up brand-h1" id="brandH1" title="click to switch mode — drag down for pi">ccy</h1>
+        <div class="brand-wrap fade-up">
+            <h1 class="brand-h1" id="brandH1" title="click to toggle mode — drag down for π">ccy</h1>
+            <span class="brand-hint" id="brandHint" aria-hidden="true">pull down for π</span>
+        </div>
         <p class="tagline fade-up">Life's too short for --dangerously-skip-permissions</p>
 
         <div class="install-section fade-up">
@@ -1996,51 +2091,109 @@
             else eyesEl.textContent = eyeStates.center;
         });
 
-        /* ── Mode switching: click h1 to toggle claude↔codex; drag h1 down
-              and release to morph into pi mode. Both swaps hard-reload with
-              the new ?mode= query so transient state is cleanly reset. ── */
+        /* ── Mode switching gesture ──
+           Click the brand wordmark → toggle claude ↔ codex.
+           Press-and-drag down past threshold + release → morph into pi mode
+           (Mario-64 style). While pressing, a "pull down for π" hint fades
+           in under the wordmark. The pull is rubber-banded (soft cap past
+           ~48px) so dragging feels tactile. Crossing the threshold primes
+           the element (stronger glow, hint intensifies). Releasing past
+           threshold triggers a fall-and-fade commit animation before the
+           ?mode=pi navigation. Below-threshold release springs back.
+           Both swaps hard-reload so transient state is cleanly reset. */
         (function wireModeToggle() {
             var brandH1 = document.getElementById('brandH1');
+            var brandHint = document.getElementById('brandHint');
             if (!brandH1) return;
             applyModeToDocument();
 
-            var DRAG_THRESHOLD_PX = 60;
+            // Hide the hint once you're in pi — there's nothing to pull to.
+            if (brandHint && ACTIVE_MODE === 'pi') {
+                brandHint.textContent = 'click to go back';
+            }
+
+            var DRAG_THRESHOLD_PX = 60;   // dy to commit to pi
+            var PULL_SOFT_CAP = 48;        // px past which extra pull rubber-bands
+            var PULL_MULT = 0.62;          // scale raw dy → translateY
+            var PRESS_HINT_MS = 140;       // hold this long → hint fades in
+            var COMMIT_MS = 280;           // match CSS .committing duration
+
             var dragState = null;
+            var pressTimer = null;
+
+            function setHint(visible, primed) {
+                if (!brandHint) return;
+                brandHint.classList.toggle('visible', !!visible);
+                brandHint.classList.toggle('primed', !!primed);
+            }
 
             function onDown(e) {
+                if (dragState) return;
                 var pt = e.touches ? e.touches[0] : e;
-                dragState = { startY: pt.clientY, dy: 0, moved: false, pointerId: e.pointerId };
-                brandH1.classList.add('dragging');
+                dragState = { startY: pt.clientY, dy: 0, moved: false, primed: false, pointerId: e.pointerId };
+                brandH1.classList.add('pressing');
+                // Delay the hint a touch so quick clicks don't flash it on
+                // and off. Pure drag intent triggers the hint on first move.
+                clearTimeout(pressTimer);
+                pressTimer = setTimeout(function () {
+                    if (dragState && !dragState.moved && ACTIVE_MODE !== 'pi') setHint(true, false);
+                }, PRESS_HINT_MS);
                 if (e.pointerId != null && brandH1.setPointerCapture) {
                     try { brandH1.setPointerCapture(e.pointerId); } catch (err) {}
                 }
                 e.preventDefault();
             }
+
             function onMove(e) {
                 if (!dragState) return;
                 var pt = e.touches ? e.touches[0] : e;
                 dragState.dy = pt.clientY - dragState.startY;
                 if (Math.abs(dragState.dy) > 4) dragState.moved = true;
-                // Visual feedback: pull the wordmark down with the gesture,
-                // capped at 28px so it stays tasteful.
-                var pull = Math.max(0, Math.min(28, dragState.dy * 0.5));
-                brandH1.style.transform = 'translateY(' + pull + 'px)';
+
+                // Only dragging down is meaningful; upward drag just stays put.
+                var rawPull = Math.max(0, dragState.dy);
+                // Rubber-band: first ~48px tracks 1:1-ish, beyond that pull
+                // tapers so you feel resistance without hitting a hard cap.
+                var pull = rawPull * PULL_MULT;
+                if (pull > PULL_SOFT_CAP) pull = PULL_SOFT_CAP + (pull - PULL_SOFT_CAP) * 0.35;
+                var scale = 1 + Math.min(0.05, rawPull / 1600);
+                brandH1.style.transform = 'translateY(' + pull + 'px) scale(' + scale + ')';
+
+                if (ACTIVE_MODE !== 'pi' && rawPull > 6) setHint(true, dragState.primed);
+
+                var primed = rawPull > DRAG_THRESHOLD_PX;
+                if (primed !== dragState.primed) {
+                    dragState.primed = primed;
+                    brandH1.classList.toggle('primed', primed);
+                    if (brandHint && ACTIVE_MODE !== 'pi') brandHint.classList.toggle('primed', primed);
+                }
             }
-            function onUp(e) {
+
+            function onUp() {
                 if (!dragState) return;
+                clearTimeout(pressTimer); pressTimer = null;
                 var dy = dragState.dy;
                 var moved = dragState.moved;
+                var primed = dragState.primed;
                 dragState = null;
-                brandH1.classList.remove('dragging');
-                brandH1.style.transform = '';
 
-                if (moved && dy > DRAG_THRESHOLD_PX) {
-                    switchMode('pi');
+                if (primed && ACTIVE_MODE !== 'pi') {
+                    // Commit animation, then navigate.
+                    brandH1.classList.remove('pressing', 'primed');
+                    brandH1.classList.add('committing');
+                    brandH1.style.transform = '';
+                    setHint(false, false);
+                    setTimeout(function () { switchMode('pi'); }, COMMIT_MS);
                     return;
                 }
+
+                // Below-threshold release: smooth spring back.
+                brandH1.classList.remove('pressing', 'primed');
+                brandH1.style.transform = '';
+                setHint(false, false);
+
                 if (!moved) {
-                    // Treat as click — toggle between claude and codex.
-                    // In pi mode, clicking always returns to claude.
+                    // Pure click — toggle.
                     if (ACTIVE_MODE === 'pi') switchMode('claude');
                     else switchMode(ACTIVE_MODE === 'claude' ? 'codex' : 'claude');
                 }
@@ -2051,6 +2204,11 @@
                 brandH1.addEventListener('pointermove', onMove);
                 brandH1.addEventListener('pointerup', onUp);
                 brandH1.addEventListener('pointercancel', onUp);
+                brandH1.addEventListener('pointerleave', function () {
+                    // If pointer exits without release (rare outside capture),
+                    // treat as cancel to avoid stuck state.
+                    if (dragState && !brandH1.hasPointerCapture) onUp();
+                });
             } else {
                 brandH1.addEventListener('mousedown', onDown);
                 window.addEventListener('mousemove', onMove);
@@ -2621,10 +2779,27 @@
                 { key: 'human', name: 'human', wpm: 80 }
             ];
 
-            // Global scale: human typing the longest phrase. Shorter commands
-            // visibly collapse toward "nothing". Expand if the user's actual
-            // delivery exceeded that baseline (errors, pauses, etc).
-            var maxSecs = typingPhases[0].length * (60000 / (80 * 5)) / 1000;
+            // Rows shown in the chart. In claude/codex that's the three phases
+            // of the test. In pi, we add two reference rows — the long claude
+            // command and codex's --yolo mid-form — so pi doesn't feel like
+            // it lives in isolation. Reference rows have no recorded "you"
+            // time, so the "you" marker is extrapolated from your pi WPM
+            // (if any). They render with a dimmed style to signal "context,
+            // not a phase you actually typed".
+            var chartRowSpecs = typingPhases.map(function (p, i) {
+                return { phrase: p, phraseIdx: i, isReference: false };
+            });
+            if (ACTIVE_MODE === 'pi') {
+                chartRowSpecs.push({ phrase: MODES.claude.phrases[0], phraseIdx: null, isReference: true });
+                chartRowSpecs.push({ phrase: MODES.codex.phrases[1], phraseIdx: null, isReference: true });
+            }
+
+            // Global scale: longest phrase at human speed. Expand for any
+            // phrase we display (including reference rows) and any user
+            // recorded times.
+            var maxSecs = chartRowSpecs.reduce(function (acc, spec) {
+                return Math.max(acc, spec.phrase.length * (60000 / (80 * 5)) / 1000);
+            }, 0);
             var youTimesForScale = (typistData.you && typistData.you.phaseTimesMs) || [];
             youTimesForScale.forEach(function(ms) {
                 if (typeof ms === 'number' && ms > 0) {
@@ -2644,9 +2819,12 @@
                 return typeof ms === 'number' && ms > 0 ? ms / 1000 : null;
             });
 
-            typingPhases.forEach(function(phrase, phraseIdx) {
+            chartRowSpecs.forEach(function (spec) {
+                var phrase = spec.phrase;
+                var phraseIdx = spec.phraseIdx;
+
                 var row = document.createElement('div');
-                row.className = 'chart-row';
+                row.className = 'chart-row' + (spec.isReference ? ' is-reference' : '');
 
                 var label = document.createElement('div');
                 label.className = 'chart-label';
@@ -2658,9 +2836,13 @@
 
                 var markers = cohort.filter(function(c) { return c.wpm > 0; }).map(function(c) {
                     var secs;
-                    if (c.me && youPhaseSecs[phraseIdx] != null) {
+                    if (c.me && phraseIdx != null && youPhaseSecs[phraseIdx] != null) {
+                        // Authoritative: user's actual time on this phrase.
                         secs = youPhaseSecs[phraseIdx];
                     } else {
+                        // Extrapolated: phrase length / this cohort's WPM.
+                        // For reference rows, this applies your saved pi WPM
+                        // to the long phrase so you see where you'd land.
                         secs = phrase.length * (60000 / (c.wpm * 5)) / 1000;
                     }
                     var pct = Math.min(100, Math.max(0.5, (secs / maxSecs) * 100));
