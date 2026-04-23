@@ -1944,19 +1944,15 @@
             }
         };
 
-        // Slug query-flags let you share mode-specific URLs without typing
-        // `mode=`: /yolo/?ccy → claude, /yolo/?cxy → codex, /yolo/?pi → pi.
-        // Handy for "challenge me on codex" tweets where the URL needs to
-        // read as a shortcut, not a config param.
+        // Slug flags — the *only* client-side switch syntax. Clean and
+        // brand-shaped: /yolo/?ccy → claude, /yolo/?cxy → codex, /yolo/?pi → pi.
+        // (The Apps Script still accepts ?mode= internally; that's its API
+        // contract and separate from the user-facing URL.)
         var MODE_SLUGS = { ccy: 'claude', cxy: 'codex', pi: 'pi' };
 
         function resolveMode() {
             try {
                 var params = new URLSearchParams(window.location.search);
-                // 1. Explicit ?mode= wins (legacy + unambiguous).
-                var m = (params.get('mode') || '').toLowerCase();
-                if (MODES[m]) return m;
-                // 2. Bare slug flags (?ccy / ?cxy / ?pi).
                 for (var slug in MODE_SLUGS) {
                     if (params.has(slug)) return MODE_SLUGS[slug];
                 }
@@ -1992,8 +1988,9 @@
 
         // Swaps the active mode. Mode change = hard reload with new query
         // string — simplest way to reset transient UI state without bug risk.
-        // We strip any existing mode-selector params before setting the new
-        // one so slug flags don't pile up in the URL.
+        // We strip any existing slug flag before setting the new one, and
+        // also any legacy `mode=` that might be hanging around, so URLs
+        // stay clean (one slug max, no param pile-up).
         function switchMode(toId) {
             if (!MODES[toId] || toId === ACTIVE_MODE) return;
             var url;
