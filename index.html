@@ -1944,11 +1944,22 @@
             }
         };
 
+        // Slug query-flags let you share mode-specific URLs without typing
+        // `mode=`: /yolo/?ccy → claude, /yolo/?cxy → codex, /yolo/?pi → pi.
+        // Handy for "challenge me on codex" tweets where the URL needs to
+        // read as a shortcut, not a config param.
+        var MODE_SLUGS = { ccy: 'claude', cxy: 'codex', pi: 'pi' };
+
         function resolveMode() {
             try {
                 var params = new URLSearchParams(window.location.search);
+                // 1. Explicit ?mode= wins (legacy + unambiguous).
                 var m = (params.get('mode') || '').toLowerCase();
                 if (MODES[m]) return m;
+                // 2. Bare slug flags (?ccy / ?cxy / ?pi).
+                for (var slug in MODE_SLUGS) {
+                    if (params.has(slug)) return MODE_SLUGS[slug];
+                }
             } catch (e) { /* URLSearchParams not supported */ }
             return 'claude';
         }
@@ -1976,15 +1987,32 @@
             });
         })();
 
+        // Slug form for share URLs: /yolo/?cxy reads better than /yolo/?mode=codex.
+        var MODE_TO_SLUG = { claude: 'ccy', codex: 'cxy', pi: 'pi' };
+
         // Swaps the active mode. Mode change = hard reload with new query
-        // param — simplest way to reset transient UI state without bug risk.
+        // string — simplest way to reset transient UI state without bug risk.
+        // We strip any existing mode-selector params before setting the new
+        // one so slug flags don't pile up in the URL.
         function switchMode(toId) {
             if (!MODES[toId] || toId === ACTIVE_MODE) return;
             var url;
             try { url = new URL(window.location.href); }
-            catch (e) { window.location.search = toId === 'claude' ? '' : '?mode=' + toId; return; }
-            if (toId === 'claude') url.searchParams.delete('mode');
-            else url.searchParams.set('mode', toId);
+            catch (e) {
+                window.location.search = toId === 'claude' ? '' : '?' + MODE_TO_SLUG[toId];
+                return;
+            }
+            url.searchParams.delete('mode');
+            Object.keys(MODE_SLUGS).forEach(function (s) { url.searchParams.delete(s); });
+            if (toId !== 'claude') {
+                // URLSearchParams.set requires a value; empty string renders as
+                // "?cxy=" which works but looks uglier. Build the query tail
+                // ourselves so the URL stays a clean "?cxy".
+                var tail = MODE_TO_SLUG[toId];
+                var base = url.origin + url.pathname;
+                var existingParams = url.searchParams.toString();
+                url = new URL(base + '?' + tail + (existingParams ? '&' + existingParams : '') + url.hash);
+            }
             window.location.href = url.toString();
         }
 
@@ -3571,7 +3599,7 @@
 
         function buildShareURL(handle) {
             var base = 'https://mochiexists.com/yolo/?h=' + encodeURIComponent(handle);
-            if (ACTIVE_MODE !== 'claude') base += '&mode=' + ACTIVE_MODE;
+            if (ACTIVE_MODE !== 'claude') base += '&' + MODE_TO_SLUG[ACTIVE_MODE];
             return base;
         }
 
