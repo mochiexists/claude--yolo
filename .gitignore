@@ -5,4 +5,8 @@
 **/.clasp.json
 node_modules/
 .playwright-mcp/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
 _*.png
