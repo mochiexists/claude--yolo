@@ -88,4 +88,22 @@ test.describe('ccy landing page', () => {
         // openTypingTest fires on invite; the "you" tab should become active.
         await expect(page.locator('#statsYou.active')).toBeVisible({ timeout: 3000 });
     });
+
+    test('pi mode races claude (long) → codex --yolo → pi', async ({ page }) => {
+        await page.goto('/?pi');
+        await page.locator('#statsYou').click();
+
+        const piPhrases = [
+            'claude --dangerously-skip-permissions',
+            'codex --yolo',
+            'pi'
+        ];
+        const input = page.locator('#typingInput');
+        for (let i = 0; i < piPhrases.length; i++) {
+            await input.focus();
+            await input.pressSequentially(piPhrases[i], { delay: 50 });
+            if (i < piPhrases.length - 1) await page.waitForTimeout(900);
+        }
+        await expect(page.locator('#typingDone')).toBeVisible({ timeout: 5000 });
+    });
 });
