@@ -2905,18 +2905,11 @@
             title.onclick = collapseStatsSection;
             chart.appendChild(title);
 
-            // Pi mode drops the human cohort — the punchline is "you beat a
-            // vim user without trying", and a third row would dilute it.
-            var cohort = ACTIVE_MODE === 'pi'
-                ? [
-                    { key: 'vim', name: 'vim user', wpm: 250 },
-                    { key: 'you', name: 'you', wpm: savedYouWpm > 0 ? savedYouWpm : 0, me: true }
-                  ]
-                : [
-                    { key: 'vim', name: 'vim', wpm: 250 },
-                    { key: 'you', name: 'you', wpm: savedYouWpm > 0 ? savedYouWpm : 0, me: true },
-                    { key: 'human', name: 'human', wpm: 80 }
-                  ];
+            var cohort = [
+                { key: 'vim', name: ACTIVE_MODE === 'pi' ? 'vim user' : 'vim', wpm: 250 },
+                { key: 'you', name: 'you', wpm: savedYouWpm > 0 ? savedYouWpm : 0, me: true },
+                { key: 'human', name: 'human', wpm: 80 }
+            ];
 
             // Authoritative per-phase times captured during the live test.
             var youTimes = (typistData.you && typistData.you.phaseTimesMs) || [];
@@ -2951,11 +2944,10 @@
                 });
             }
 
-            // Scale axis: in pi mode anchor on vim speed (the comparison
-            // point). Otherwise anchor on human speed (slowest cohort).
-            var anchorWpm = ACTIVE_MODE === 'pi' ? 250 : 80;
+            // Anchor scale on human (80 wpm) speed so the slowest marker on
+            // every row still fits.
             var maxSecs = chartRowSpecs.reduce(function (acc, spec) {
-                return Math.max(acc, spec.phrase.length * (60000 / (anchorWpm * 5)) / 1000);
+                return Math.max(acc, spec.phrase.length * (60000 / (80 * 5)) / 1000);
             }, 0);
             var youTimesForScale = (typistData.you && typistData.you.phaseTimesMs) || [];
             youTimesForScale.forEach(function(ms) {
