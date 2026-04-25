@@ -2935,10 +2935,12 @@
                 var sumS = 0, n = 0;
                 youPhaseSecs.forEach(function(s) { if (s != null) { sumS += s; n++; } });
                 if (n > 0) piAvgSecs = sumS / n;
+                // Order top→bottom: slowest → fastest. Pi lands last so the
+                // bars read as a nice descending line straight to the punch.
                 chartRowSpecs = [
-                    { phrase: 'pi', youSecs: piAvgSecs, isReference: false },
                     { phrase: 'claude --dangerously-skip-permissions', phraseIdx: null, isReference: true },
-                    { phrase: 'codex --yolo', phraseIdx: null, isReference: true }
+                    { phrase: 'codex --yolo', phraseIdx: null, isReference: true },
+                    { phrase: 'pi', youSecs: piAvgSecs, isReference: false }
                 ];
             } else {
                 chartRowSpecs = typingPhases.map(function (p, i) {
